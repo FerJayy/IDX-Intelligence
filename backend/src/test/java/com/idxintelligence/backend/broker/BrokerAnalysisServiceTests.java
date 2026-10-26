@@ -1,5 +1,7 @@
 package com.idxintelligence.backend.broker;
 
+import com.idxintelligence.backend.IndonesianFormat;
+
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
@@ -128,10 +130,10 @@ class BrokerAnalysisServiceTests {
 
     @Test
     void compactUsesIndonesianShortScale() {
-        assertThat(BrokerAnalysisService.compact(new BigDecimal("1905020470112"))).isEqualTo("1,9 T");
-        assertThat(BrokerAnalysisService.compact(new BigDecimal("806012737441"))).isEqualTo("806 M");
-        assertThat(BrokerAnalysisService.compact(new BigDecimal("12500000"))).isEqualTo("12,5 jt");
-        assertThat(BrokerAnalysisService.compact(new BigDecimal("950"))).isEqualTo("950");
+        assertThat(IndonesianFormat.compact(new BigDecimal("1905020470112"))).isEqualTo("1,9 T");
+        assertThat(IndonesianFormat.compact(new BigDecimal("806012737441"))).isEqualTo("806 M");
+        assertThat(IndonesianFormat.compact(new BigDecimal("12500000"))).isEqualTo("12,5 jt");
+        assertThat(IndonesianFormat.compact(new BigDecimal("950"))).isEqualTo("950");
     }
 
     /** Values use price 100. A "foreign" broker's whole flow counts as foreign investors'. */

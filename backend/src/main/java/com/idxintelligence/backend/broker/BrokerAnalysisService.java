@@ -1,5 +1,6 @@
 package com.idxintelligence.backend.broker;
 
+import com.idxintelligence.backend.IndonesianFormat;
 import com.idxintelligence.backend.market.MarketDataProvider;
 import com.idxintelligence.backend.market.MarketService;
 import com.idxintelligence.backend.market.PriceRange;
@@ -88,7 +89,7 @@ public class BrokerAnalysisService {
                 daily);
     }
 
-    static List<BrokerPosition> positions(List<BrokerDailyActivity> rows) {
+    public static List<BrokerPosition> positions(List<BrokerDailyActivity> rows) {
         Map<String, List<BrokerDailyActivity>> byBroker = rows.stream()
                 .collect(Collectors.groupingBy(BrokerDailyActivity::brokerCode, LinkedHashMap::new, Collectors.toList()));
 
@@ -109,7 +110,7 @@ public class BrokerAnalysisService {
         return positions;
     }
 
-    static List<DailyBrokerFlow> dailyFlows(List<BrokerDailyActivity> rows) {
+    public static List<DailyBrokerFlow> dailyFlows(List<BrokerDailyActivity> rows) {
         Map<LocalDate, List<BrokerDailyActivity>> byDate = rows.stream()
                 .collect(Collectors.groupingBy(BrokerDailyActivity::date, TreeMap::new, Collectors.toList()));
 
@@ -188,7 +189,7 @@ public class BrokerAnalysisService {
             String coverage = foreignDays.size() == daily.size() ? ""
                     : " (" + foreignDays.size() + " of " + daily.size() + " days with foreign data)";
             reasons.add("Foreign investors net " + (foreignNet.signum() >= 0 ? "bought" : "sold")
-                    + " Rp" + compact(foreignNet.abs()) + " over the period" + coverage + ".");
+                    + " Rp" + IndonesianFormat.compact(foreignNet.abs()) + " over the period" + coverage + ".");
         }
 
         // Context only, not scored: where the main buyers' average cost sits versus today's price.
@@ -222,20 +223,5 @@ public class BrokerAnalysisService {
 
     private static String signed(NumberFormat percent, BigDecimal fraction) {
         return (fraction.signum() > 0 ? "+" : "") + percent.format(fraction);
-    }
-
-    /** Indonesian short scale, matching the frontend: 1,9 T (triliun), 806 M (miliar), 12,5 jt (juta). */
-    static String compact(BigDecimal value) {
-        NumberFormat number = NumberFormat.getNumberInstance(INDONESIA);
-        number.setMaximumFractionDigits(1);
-        BigDecimal abs = value.abs();
-        String[][] scales = {{"1000000000000", " T"}, {"1000000000", " M"}, {"1000000", " jt"}, {"1000", " rb"}};
-        for (String[] scale : scales) {
-            BigDecimal unit = new BigDecimal(scale[0]);
-            if (abs.compareTo(unit) >= 0) {
-                return number.format(value.divide(unit, 1, RoundingMode.HALF_UP)) + scale[1];
-            }
-        }
-        return number.format(value);
     }
 }
