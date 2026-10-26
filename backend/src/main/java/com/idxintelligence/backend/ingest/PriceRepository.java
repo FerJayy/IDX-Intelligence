@@ -1,0 +1,85 @@
+package com.idxintelligence.backend.ingest;
+
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.stereotype.Repository;
+
+import java.sql.Date;
+import java.sql.Timestamp;
+import java.sql.Types;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.util.List;
+
+@Repository
+public class PriceRepository {
+
+    private final JdbcClient jdbc;
+    private final JdbcTemplate jdbcTemplate;
+
+    public PriceRepository(JdbcClient jdbc, JdbcTemplate jdbcTemplate) {
+        this.jdbc = jdbc;
+        this.jdbcTemplate = jdbcTemplate;
+    }
+
+    public List<String> trackedTickers() {
+        return jdbc.sql("SELECT ticker FROM stock ORDER BY ticker").query(String.class).list();
+    }
+
+    /** Most recent stored trading day for {@code ticker}, or null if none yet. */
+    public LocalDate latestTradeDate(String ticker) {
+        return jdbc.sql("SELECT max(trade_date) FROM daily_price WHERE ticker = ?")
+                .param(ticker)
+                .query(LocalDate.class)
+                .optional()
+                .orElse(null);
+    }
+
+    /**
+     * Inserts bars, or updates them if that (ticker, trade_date) already exists.
+     * Re-running an import is therefore always safe.
+     */
+    public int upsert(String ticker, List<YahooFinanceClient.DailyBar> bars, String source) {
+        jdbcTemplate.batchUpdate("""
+                INSERT INTO daily_price (ticker, trade_date, open, high, low, close, adjusted_close, volume, source, fetched_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, now())
+                ON CONFLICT (ticker, trade_date) DO UPDATE SET
+                    open = EXCLUDED.open,
+                    high = EXCLUDED.high,
+                    low = EXCLUDED.low,
+                    close = EXCLUDED.close,
+                    adjusted_close = EXCLUDED.adjusted_close,
+                    volume = EXCLUDED.volume,
+                    source = EXCLUDED.source,
+                    fetched_at = EXCLUDED.fetched_at
+                """, bars, 500, (ps, bar) -> {
+            ps.setString(1, ticker);
+            ps.setDate(2, Date.valueOf(bar.date()));
+            ps.setBigDecimal(3, bar.open());
+            ps.setBigDecimal(4, bar.high());
+            ps.setBigDecimal(5, bar.low());
+            ps.setBigDecimal(6, bar.close());
+            ps.setBigDecimal(7, bar.adjustedClose());
+            if (bar.volume() == null) ps.setNull(8, Types.BIGINT); else ps.setLong(8, bar.volume());
+            ps.setString(9, source);
+        });
+        return bars.size();
+    }
+
+    public long startRun(String source, Instant startedAt) {
+        return jdbc.sql("INSERT INTO import_run (source, started_at) VALUES (?, ?) RETURNING id")
+                .params(source, Timestamp.from(startedAt))
+                .query(Long.class)
+                .single();
+    }
+
+    public void finishRun(long id, Instant finishedAt, int ok, int failed, int rows, String message) {
+        jdbc.sql("""
+                UPDATE import_run
+                SET finished_at = ?, stocks_ok = ?, stocks_failed = ?, rows_written = ?, message = ?
+                WHERE id = ?
+                """)
+                .params(Timestamp.from(finishedAt), ok, failed, rows, message, id)
+                .update();
+    }
+}

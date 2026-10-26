@@ -38,6 +38,20 @@ The backend uses PostgreSQL on [Neon](https://neon.tech) (free tier, Singapore r
 
 The backend will not start without `backend/.env` (or `DB_URL`, `DB_USERNAME`, `DB_PASSWORD` environment variables). Tests do **not** use Neon: they start their own embedded PostgreSQL (first run downloads it, a few minutes).
 
+## Importing real prices
+
+Daily prices for every stock in the `stock` table come from Yahoo Finance (unofficial endpoint; personal, non-commercial use) into `daily_price`.
+
+- **Automatic:** weekdays at 17:00 WIB while the backend is running.
+- **Manual** (backend running):
+  ```powershell
+  cd backend
+  powershell -ExecutionPolicy Bypass -File scripts\import-prices.ps1
+  ```
+  The first time, this adds a random `ADMIN_TOKEN` to `backend/.env`; restart the backend and run it again. The first import backfills 10 years (~2 minutes); later runs fetch only the last week (~30 seconds). Re-running is always safe.
+
+Each run is logged in the `import_run` table.
+
 ## Running locally
 
 Run the backend and frontend in two terminals (PowerShell).
