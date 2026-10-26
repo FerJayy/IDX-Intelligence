@@ -11,7 +11,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@WebMvcTest(MarketController.class)
+@WebMvcTest(controllers = MarketController.class, properties = "app.data-source=demo")
 @Import({MarketService.class, MockMarketDataProvider.class})
 class MarketControllerTests {
 

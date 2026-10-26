@@ -36,18 +36,23 @@ public class YahooFinanceClient {
 
     /** Daily bars for an IDX ticker (without the .JK suffix) from {@code from} to {@code to} inclusive. */
     public List<DailyBar> dailyBars(String ticker, LocalDate from, LocalDate to) {
+        return dailyBarsForSymbol(ticker + ".JK", from, to);
+    }
+
+    /** Daily bars for any Yahoo symbol, e.g. {@code ^JKSE} for the IDX Composite. */
+    public List<DailyBar> dailyBarsForSymbol(String symbol, LocalDate from, LocalDate to) {
         long period1 = from.atStartOfDay(JAKARTA).toEpochSecond();
         long period2 = to.plusDays(1).atStartOfDay(JAKARTA).toEpochSecond();
 
         ChartResponse response = http.get()
                 .uri("/v8/finance/chart/{symbol}?period1={p1}&period2={p2}&interval=1d&events=div,splits",
-                        ticker + ".JK", period1, period2)
+                        symbol, period1, period2)
                 .retrieve()
                 .body(ChartResponse.class);
 
         if (response == null || response.chart() == null || response.chart().result() == null
                 || response.chart().result().isEmpty()) {
-            throw new IllegalStateException("Yahoo returned no data for " + ticker);
+            throw new IllegalStateException("Yahoo returned no data for " + symbol);
         }
         return toBars(response.chart().result().getFirst());
     }

@@ -2,6 +2,7 @@ package com.idxintelligence.backend.broker;
 
 import com.idxintelligence.backend.market.MarketDataProvider;
 import com.idxintelligence.backend.market.PriceBar;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
@@ -9,6 +10,7 @@ import java.util.List;
 
 /** Demo broker summaries derived from the demo price history. Never real broker data. */
 @Component
+@ConditionalOnProperty(name = "app.data-source", havingValue = "demo")
 public class MockBrokerDataProvider implements BrokerDataProvider {
 
     private final MarketDataProvider marketData;

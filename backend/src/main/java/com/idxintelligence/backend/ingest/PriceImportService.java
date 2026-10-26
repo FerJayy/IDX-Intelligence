@@ -13,6 +13,7 @@ import java.time.LocalTime;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -29,6 +30,8 @@ public class PriceImportService {
     static final LocalTime DAY_FINAL_AFTER = LocalTime.of(17, 0);
     // Re-fetch this many recent days on every run to pick up late corrections.
     static final int OVERLAP_DAYS = 7;
+    /** Our index code -> Yahoo symbol. */
+    static final Map<String, String> INDICES = Map.of("COMPOSITE", "^JKSE");
 
     private final YahooFinanceClient yahoo;
     private final PriceRepository repository;
@@ -95,6 +98,24 @@ public class PriceImportService {
                 failures.add(ticker + ": " + e.getMessage());
             }
             pause();
+        }
+
+        // Market indices go to index_daily; failures are reported like stocks but not counted as one.
+        for (var index : INDICES.entrySet()) {
+            try {
+                LocalDate latest = repository.latestIndexDate(index.getKey());
+                LocalDate from = latest == null
+                        ? lastFinalDay.minusYears(backfillYears)
+                        : latest.minusDays(OVERLAP_DAYS);
+                List<YahooFinanceClient.DailyBar> bars = yahoo.dailyBarsForSymbol(index.getValue(), from, lastFinalDay)
+                        .stream()
+                        .filter(bar -> !bar.date().isAfter(lastFinalDay))
+                        .toList();
+                rows += repository.upsertIndex(index.getKey(), bars, SOURCE);
+            } catch (RuntimeException e) {
+                log.warn("Index import failed for {}: {}", index.getKey(), e.getMessage());
+                failures.add(index.getKey() + ": " + e.getMessage());
+            }
         }
 
         String message = failures.isEmpty() ? null : String.join("\n", failures);

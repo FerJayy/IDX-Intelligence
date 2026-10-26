@@ -1,9 +1,9 @@
 package com.idxintelligence.backend.market;
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -12,6 +12,7 @@ import java.util.List;
  * invented and must never be shown without the demo label.
  */
 @Component
+@ConditionalOnProperty(name = "app.data-source", havingValue = "demo")
 public class MockMarketDataProvider implements MarketDataProvider {
 
     private static final List<StockQuote> QUOTES = List.of(
@@ -74,21 +75,14 @@ public class MockMarketDataProvider implements MarketDataProvider {
         return date;
     }
 
+    // Demo quotes carry no trade date: they are not from any real trading day.
     private static StockQuote quote(String ticker, String name, String sector,
                                     long previousClose, long lastPrice, long volume) {
-        BigDecimal prev = BigDecimal.valueOf(previousClose);
-        BigDecimal last = BigDecimal.valueOf(lastPrice);
-        BigDecimal change = last.subtract(prev);
-        return new StockQuote(ticker, name, sector, last, prev, change,
-                percent(change, prev), volume, last.multiply(BigDecimal.valueOf(volume)));
+        return StockQuote.of(ticker, name, sector, null,
+                BigDecimal.valueOf(lastPrice), BigDecimal.valueOf(previousClose), volume);
     }
 
     private static IndexSnapshot index(String code, String name, BigDecimal previousClose, BigDecimal value) {
-        BigDecimal change = value.subtract(previousClose);
-        return new IndexSnapshot(code, name, value, previousClose, change, percent(change, previousClose));
-    }
-
-    private static BigDecimal percent(BigDecimal change, BigDecimal base) {
-        return change.multiply(BigDecimal.valueOf(100)).divide(base, 2, RoundingMode.HALF_UP);
+        return IndexSnapshot.of(code, name, null, value, previousClose);
     }
 }

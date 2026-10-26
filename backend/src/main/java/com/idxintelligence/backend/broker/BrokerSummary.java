@@ -5,6 +5,10 @@ import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.List;
 
+/**
+ * @param tradingDays trading days in the range (from price data)
+ * @param brokerDays  of those, days that have broker data; fewer while the backfill is running
+ */
 public record BrokerSummary(
         boolean demo,
         String dataSource,
@@ -14,6 +18,8 @@ public record BrokerSummary(
         String range,
         LocalDate from,
         LocalDate to,
+        int tradingDays,
+        int brokerDays,
         BigDecimal lastPrice,
         FlowAssessment assessment,
         List<BrokerPosition> topBuyers,

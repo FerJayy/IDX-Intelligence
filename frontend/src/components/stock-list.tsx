@@ -30,7 +30,7 @@ export function StockList({ title, stocks, metric }: StockListProps) {
               <th className="py-1 font-medium">Ticker</th>
               <th className="py-1 text-right font-medium">Last</th>
               <th className="py-1 text-right font-medium">
-                {metric === "value" ? "Value (Rp)" : "Change"}
+                {metric === "value" ? "Est. value (Rp)" : "Change"}
               </th>
             </tr>
           </thead>

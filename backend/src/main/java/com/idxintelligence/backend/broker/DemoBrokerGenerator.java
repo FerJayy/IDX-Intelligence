@@ -25,20 +25,20 @@ final class DemoBrokerGenerator {
 
     // Codes only: activity is invented, so it is not attributed to named firms.
     static final List<Broker> BROKERS = List.of(
-            new Broker("AK", BrokerType.FOREIGN), new Broker("BK", BrokerType.FOREIGN),
-            new Broker("KZ", BrokerType.FOREIGN), new Broker("RX", BrokerType.FOREIGN),
-            new Broker("ZP", BrokerType.FOREIGN), new Broker("YU", BrokerType.FOREIGN),
-            new Broker("CG", BrokerType.FOREIGN),
-            new Broker("YP", BrokerType.DOMESTIC), new Broker("PD", BrokerType.DOMESTIC),
-            new Broker("CC", BrokerType.DOMESTIC), new Broker("XL", BrokerType.DOMESTIC),
-            new Broker("NI", BrokerType.DOMESTIC), new Broker("OD", BrokerType.DOMESTIC),
-            new Broker("LG", BrokerType.DOMESTIC), new Broker("DX", BrokerType.DOMESTIC),
-            new Broker("SQ", BrokerType.DOMESTIC), new Broker("EP", BrokerType.DOMESTIC),
-            new Broker("KK", BrokerType.DOMESTIC), new Broker("CP", BrokerType.DOMESTIC),
-            new Broker("MG", BrokerType.DOMESTIC)
+            new Broker("AK", true), new Broker("BK", true),
+            new Broker("KZ", true), new Broker("RX", true),
+            new Broker("ZP", true), new Broker("YU", true),
+            new Broker("CG", true),
+            new Broker("YP", false), new Broker("PD", false),
+            new Broker("CC", false), new Broker("XL", false),
+            new Broker("NI", false), new Broker("OD", false),
+            new Broker("LG", false), new Broker("DX", false),
+            new Broker("SQ", false), new Broker("EP", false),
+            new Broker("KK", false), new Broker("CP", false),
+            new Broker("MG", false)
     );
 
-    record Broker(String code, BrokerType type) {
+    record Broker(String code, boolean foreign) {
     }
 
     private DemoBrokerGenerator() {
@@ -79,7 +79,7 @@ final class DemoBrokerGenerator {
             double[] buyWeights = new double[n];
             double[] sellWeights = new double[n];
             for (int i = 0; i < n; i++) {
-                double foreignTilt = BROKERS.get(i).type() == BrokerType.FOREIGN ? (upDay ? 1.3 : 0.77) : 1;
+                double foreignTilt = BROKERS.get(i).foreign() ? (upDay ? 1.3 : 0.77) : 1;
                 buyWeights[i] = popularity[i] * noise(random) * foreignTilt;
                 sellWeights[i] = popularity[i] * noise(random) / foreignTilt;
             }
@@ -92,14 +92,20 @@ final class DemoBrokerGenerator {
 
             for (int i = 0; i < n; i++) {
                 if (buyLots[i] == 0 && sellLots[i] == 0) continue;
+                BigDecimal buyValue = value(buyLots[i], averagePrice(bar, random));
+                BigDecimal sellValue = value(sellLots[i], averagePrice(bar, random));
+                // Demo simplification: all of a foreign broker's flow counts as foreign investors'.
+                boolean foreign = BROKERS.get(i).foreign();
                 rows.add(new BrokerDailyActivity(
                         bar.date(),
                         BROKERS.get(i).code(),
-                        BROKERS.get(i).type(),
+                        null,
                         buyLots[i] * LOT,
-                        value(buyLots[i], averagePrice(bar, random)),
+                        buyValue,
                         sellLots[i] * LOT,
-                        value(sellLots[i], averagePrice(bar, random))));
+                        sellValue,
+                        foreign ? buyValue : BigDecimal.ZERO,
+                        foreign ? sellValue : BigDecimal.ZERO));
             }
         }
         return rows;

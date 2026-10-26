@@ -1,0 +1,108 @@
+package com.idxintelligence.backend.market;
+
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.stereotype.Component;
+
+import java.sql.Date;
+import java.time.LocalDate;
+import java.util.List;
+
+/**
+ * Real end-of-day prices from the database (imported from Yahoo Finance by PriceImportService).
+ * Active unless {@code app.data-source=demo}.
+ */
+@Component
+@ConditionalOnProperty(name = "app.data-source", havingValue = "database", matchIfMissing = true)
+public class DatabaseMarketDataProvider implements MarketDataProvider {
+
+    private static final String COMPOSITE = "COMPOSITE";
+
+    private final JdbcClient jdbc;
+
+    public DatabaseMarketDataProvider(JdbcClient jdbc) {
+        this.jdbc = jdbc;
+    }
+
+    @Override
+    public String sourceName() {
+        return "Yahoo Finance";
+    }
+
+    @Override
+    public boolean isDemo() {
+        return false;
+    }
+
+    /** Latest IHSG value and the one before it, or null if the index hasn't been imported yet. */
+    @Override
+    public IndexSnapshot compositeIndex() {
+        List<IndexSnapshot> rows = jdbc.sql("""
+                SELECT trade_date, close, lag(close) OVER (ORDER BY trade_date) AS previous_close
+                FROM (SELECT trade_date, close FROM index_daily WHERE code = ? ORDER BY trade_date DESC LIMIT 2) last_two
+                ORDER BY trade_date DESC
+                LIMIT 1
+                """)
+                .param(COMPOSITE)
+                .query((rs, n) -> IndexSnapshot.of(COMPOSITE, "IDX Composite (IHSG)",
+                        rs.getDate("trade_date").toLocalDate(),
+                        rs.getBigDecimal("close"), rs.getBigDecimal("previous_close")))
+                .list();
+        return rows.isEmpty() ? null : rows.getFirst();
+    }
+
+    /**
+     * Each tracked stock's latest bar and the close before it. A stock whose latest bar is older than
+     * the market's latest trading day (e.g. suspended) keeps its last price but reports no daily change.
+     */
+    @Override
+    public List<StockQuote> quotes() {
+        LocalDate marketDate = latestTradingDate();
+        return jdbc.sql("""
+                SELECT s.ticker, s.name, s.sector, cur.trade_date, cur.close, cur.volume, prev.close AS previous_close
+                FROM stock s
+                LEFT JOIN LATERAL (
+                    SELECT trade_date, close, volume FROM daily_price p
+                    WHERE p.ticker = s.ticker ORDER BY trade_date DESC LIMIT 1
+                ) cur ON true
+                LEFT JOIN LATERAL (
+                    SELECT close FROM daily_price p
+                    WHERE p.ticker = s.ticker AND p.trade_date < cur.trade_date ORDER BY trade_date DESC LIMIT 1
+                ) prev ON true
+                ORDER BY s.ticker
+                """)
+                .query((rs, n) -> {
+                    Date date = rs.getDate("trade_date");
+                    StockQuote quote = StockQuote.of(rs.getString("ticker"), rs.getString("name"), rs.getString("sector"),
+                            date == null ? null : date.toLocalDate(),
+                            rs.getBigDecimal("close"), rs.getBigDecimal("previous_close"),
+                            rs.getObject("volume", Long.class));
+                    boolean stale = quote.tradeDate() == null || !quote.tradeDate().equals(marketDate);
+                    return stale ? quote.withoutDailyChange() : quote;
+                })
+                .list();
+    }
+
+    @Override
+    public List<PriceBar> dailyBars(String ticker, LocalDate from, LocalDate to) {
+        return jdbc.sql("""
+                SELECT trade_date, open, high, low, close, volume FROM daily_price
+                WHERE ticker = ? AND trade_date BETWEEN ? AND ?
+                ORDER BY trade_date
+                """)
+                .params(ticker.toUpperCase(), Date.valueOf(from), Date.valueOf(to))
+                .query((rs, n) -> new PriceBar(rs.getDate("trade_date").toLocalDate(),
+                        rs.getBigDecimal("open"), rs.getBigDecimal("high"), rs.getBigDecimal("low"),
+                        rs.getBigDecimal("close"), rs.getObject("volume", Long.class)))
+                .list();
+    }
+
+    /** Most recent day with any stored price; today (Jakarta) if nothing is imported yet. */
+    @Override
+    public LocalDate latestTradingDate() {
+        return jdbc.sql("SELECT max(trade_date) FROM daily_price")
+                .query(LocalDate.class)
+                .optional()
+                .orElse(LocalDate.now(MarketService.JAKARTA));
+    }
+}

@@ -14,7 +14,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@WebMvcTest(BrokerController.class)
+@WebMvcTest(controllers = BrokerController.class, properties = "app.data-source=demo")
 @Import({BrokerAnalysisService.class, MockBrokerDataProvider.class, MarketService.class, MockMarketDataProvider.class})
 class BrokerControllerTests {
 

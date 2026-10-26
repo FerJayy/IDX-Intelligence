@@ -17,6 +17,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
 
@@ -28,6 +29,8 @@ import java.util.stream.Collectors;
 public class BrokerAnalysisService {
 
     static final int TOP_N = 5;
+    /** Fewer days than this and the assessment says so instead of guessing. */
+    static final int MIN_DAYS_FOR_ASSESSMENT = 5;
 
     // Assessment thresholds. Heuristic starting points; to be validated by backtesting.
     static final BigDecimal CONCENTRATION_THRESHOLD = new BigDecimal("0.05");
@@ -52,6 +55,7 @@ public class BrokerAnalysisService {
         LocalDate to = marketData.latestTradingDate();
         LocalDate from = range.startFrom(to);
         List<BrokerDailyActivity> rows = brokerData.dailyActivity(quote.ticker(), from, to);
+        int tradingDays = marketData.dailyBars(quote.ticker(), from, to).size();
 
         List<BrokerPosition> positions = positions(rows);
         List<BrokerPosition> topBuyers = positions.stream()
@@ -75,6 +79,8 @@ public class BrokerAnalysisService {
                 range.code(),
                 from,
                 to,
+                tradingDays,
+                daily.size(),
                 quote.lastPrice(),
                 assess(daily, topBuyers, quote.lastPrice()),
                 topBuyers,
@@ -92,10 +98,13 @@ public class BrokerAnalysisService {
             long sellVolume = brokerRows.stream().mapToLong(BrokerDailyActivity::sellVolume).sum();
             BigDecimal buyValue = sum(brokerRows.stream().map(BrokerDailyActivity::buyValue).toList());
             BigDecimal sellValue = sum(brokerRows.stream().map(BrokerDailyActivity::sellValue).toList());
-            positions.add(new BrokerPosition(code, brokerRows.getFirst().brokerType(),
+            String name = brokerRows.stream().map(BrokerDailyActivity::brokerName)
+                    .filter(Objects::nonNull).findFirst().orElse(null);
+            positions.add(new BrokerPosition(code, name,
                     buyVolume, buyValue, averagePrice(buyValue, buyVolume),
                     sellVolume, sellValue, averagePrice(sellValue, sellVolume),
-                    buyVolume - sellVolume, buyValue.subtract(sellValue)));
+                    buyVolume - sellVolume, buyValue.subtract(sellValue),
+                    sumIfAllKnown(brokerRows.stream().map(BrokerDailyActivity::foreignNetValue).toList())));
         });
         return positions;
     }
@@ -105,7 +114,7 @@ public class BrokerAnalysisService {
                 .collect(Collectors.groupingBy(BrokerDailyActivity::date, TreeMap::new, Collectors.toList()));
 
         List<DailyBrokerFlow> flows = new ArrayList<>();
-        BigDecimal cumulativeForeign = BigDecimal.ZERO;
+        BigDecimal cumulativeForeign = null;
         for (Map.Entry<LocalDate, List<BrokerDailyActivity>> day : byDate.entrySet()) {
             List<BrokerDailyActivity> dayRows = day.getValue();
             long totalVolume = dayRows.stream().mapToLong(BrokerDailyActivity::buyVolume).sum();
@@ -116,23 +125,25 @@ public class BrokerAnalysisService {
             BigDecimal concentration = totalVolume == 0 ? BigDecimal.ZERO
                     : BigDecimal.valueOf(top5Buy - top5Sell).divide(BigDecimal.valueOf(totalVolume), 4, RoundingMode.HALF_UP);
 
-            BigDecimal foreignNet = sum(dayRows.stream()
-                    .filter(r -> r.brokerType() == BrokerType.FOREIGN)
-                    .map(BrokerDailyActivity::netValue)
-                    .toList());
-            cumulativeForeign = cumulativeForeign.add(foreignNet);
+            BigDecimal foreignNet = sumIfAllKnown(dayRows.stream().map(BrokerDailyActivity::foreignNetValue).toList());
+            if (foreignNet != null) {
+                cumulativeForeign = cumulativeForeign == null ? foreignNet : cumulativeForeign.add(foreignNet);
+            }
 
             flows.add(new DailyBrokerFlow(day.getKey(), totalVolume, top5Buy, top5Sell, concentration,
                     (int) nets.stream().filter(v -> v > 0).count(),
                     (int) nets.stream().filter(v -> v < 0).count(),
-                    foreignNet, cumulativeForeign));
+                    foreignNet, foreignNet == null ? null : cumulativeForeign));
         }
         return flows;
     }
 
     static FlowAssessment assess(List<DailyBrokerFlow> daily, List<BrokerPosition> topBuyers, BigDecimal lastPrice) {
-        if (daily.isEmpty()) {
-            return new FlowAssessment(FlowAssessment.Status.NEUTRAL, List.of("No broker data for this period."));
+        if (daily.size() < MIN_DAYS_FOR_ASSESSMENT) {
+            return new FlowAssessment(FlowAssessment.Status.NEUTRAL, List.of(daily.isEmpty()
+                    ? "No broker data for this period yet."
+                    : "Only " + daily.size() + " trading day" + (daily.size() == 1 ? "" : "s")
+                      + " of broker data so far; an assessment needs at least " + MIN_DAYS_FOR_ASSESSMENT + "."));
         }
         NumberFormat percent = NumberFormat.getPercentInstance(INDONESIA);
         percent.setMaximumFractionDigits(1);
@@ -167,11 +178,18 @@ public class BrokerAnalysisService {
                     default -> ".";
                 });
 
-        // 3. Did foreign brokers net buy or sell?
-        BigDecimal foreignNet = daily.getLast().cumulativeForeignNetValue();
-        score += foreignNet.signum();
-        reasons.add("Foreign brokers net " + (foreignNet.signum() >= 0 ? "bought" : "sold")
-                + " Rp" + compact(foreignNet.abs()) + " over the period.");
+        // 3. Did foreign investors net buy or sell? Only days where foreign flow is known count.
+        List<DailyBrokerFlow> foreignDays = daily.stream().filter(d -> d.foreignNetValue() != null).toList();
+        if (foreignDays.isEmpty()) {
+            reasons.add("Foreign investor flow is not available for this period yet.");
+        } else {
+            BigDecimal foreignNet = sum(foreignDays.stream().map(DailyBrokerFlow::foreignNetValue).toList());
+            score += foreignNet.signum();
+            String coverage = foreignDays.size() == daily.size() ? ""
+                    : " (" + foreignDays.size() + " of " + daily.size() + " days with foreign data)";
+            reasons.add("Foreign investors net " + (foreignNet.signum() >= 0 ? "bought" : "sold")
+                    + " Rp" + compact(foreignNet.abs()) + " over the period" + coverage + ".");
+        }
 
         // Context only, not scored: where the main buyers' average cost sits versus today's price.
         BigDecimal buyValue = sum(topBuyers.stream().map(BrokerPosition::buyValue).toList());
@@ -195,6 +213,11 @@ public class BrokerAnalysisService {
 
     private static BigDecimal sum(List<BigDecimal> values) {
         return values.stream().reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    /** Sum, or null if any value is missing (a partial sum would look like a real total). */
+    private static BigDecimal sumIfAllKnown(List<BigDecimal> values) {
+        return values.stream().anyMatch(Objects::isNull) ? null : sum(values);
     }
 
     private static String signed(NumberFormat percent, BigDecimal fraction) {

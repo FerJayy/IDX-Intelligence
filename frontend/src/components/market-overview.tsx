@@ -6,6 +6,7 @@ import {
   formatIndex,
   formatJakartaTime,
   formatPercent,
+  formatTradingDate,
 } from "@/lib/format";
 import { DemoBanner } from "./demo-banner";
 import { StockList } from "./stock-list";
@@ -33,13 +34,17 @@ export async function MarketOverview() {
 
       <div className="grid gap-4 sm:grid-cols-2">
         <section className="rounded-xl border border-slate-800 bg-slate-900/50 p-5">
-          <p className="text-sm text-slate-400">{index.name}</p>
-          <p className="mt-2 text-3xl font-bold tabular-nums">
-            {formatIndex(index.value)}
-          </p>
-          <p className={`mt-1 tabular-nums ${changeColor(index.change)}`}>
-            {formatChange(index.change, 2)} ({formatPercent(index.changePercent)})
-          </p>
+          <p className="text-sm text-slate-400">{index?.name ?? "IDX Composite (IHSG)"}</p>
+          {index ? (
+            <>
+              <p className="mt-2 text-3xl font-bold tabular-nums">{formatIndex(index.value)}</p>
+              <p className={`mt-1 tabular-nums ${changeColor(index.change)}`}>
+                {formatChange(index.change, 2)} ({formatPercent(index.changePercent)})
+              </p>
+            </>
+          ) : (
+            <p className="mt-2 text-sm text-slate-500">Not imported yet — run the price import.</p>
+          )}
         </section>
 
         <section className="rounded-xl border border-slate-800 bg-slate-900/50 p-5">
@@ -59,8 +64,12 @@ export async function MarketOverview() {
       </div>
 
       <p className="text-xs text-slate-500">
-        Source: {overview.dataSource} · Generated {formatJakartaTime(overview.generatedAt)}
-        {overview.demo && " · Figures are invented for development and are not market prices."}
+        Source: {overview.dataSource}
+        {overview.dataDate && <> · End-of-day data for {formatTradingDate(overview.dataDate)}</>}
+        {" · "}Generated {formatJakartaTime(overview.generatedAt)}
+        {overview.demo
+          ? " · Figures are invented for development and are not market prices."
+          : " · Traded value is estimated as last price × volume. Not investment advice."}
       </p>
     </div>
   );

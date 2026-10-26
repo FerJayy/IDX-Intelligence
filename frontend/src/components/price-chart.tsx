@@ -64,7 +64,14 @@ export function PriceChart({ bars, flows = NO_FLOWS }: { bars: PriceBar[]; flows
       priceLineVisible: false,
     });
     candles.setData(
-      bars.map((b) => ({ time: b.date, open: b.open, high: b.high, low: b.low, close: b.close })),
+      // A missing open/high/low is drawn at the close; the readout and table still show it as missing.
+      bars.map((b) => ({
+        time: b.date,
+        open: b.open ?? b.close,
+        high: b.high ?? Math.max(b.open ?? b.close, b.close),
+        low: b.low ?? Math.min(b.open ?? b.close, b.close),
+        close: b.close,
+      })),
     );
 
     // Volume lives in its own pane with its own scale - never a second axis on the price chart.
@@ -108,7 +115,14 @@ export function PriceChart({ bars, flows = NO_FLOWS }: { bars: PriceBar[]; flows
         },
         3,
       );
-      foreign.setData(flows.map((f) => ({ time: f.date, value: f.cumulativeForeignNetValue })));
+      // Days without foreign data become gaps in the line instead of zeros.
+      foreign.setData(
+        flows.map((f) =>
+          f.cumulativeForeignNetValue == null
+            ? { time: f.date }
+            : { time: f.date, value: f.cumulativeForeignNetValue },
+        ),
+      );
       chart.panes()[2]?.setStretchFactor(0.3);
       chart.panes()[3]?.setStretchFactor(0.3);
     }

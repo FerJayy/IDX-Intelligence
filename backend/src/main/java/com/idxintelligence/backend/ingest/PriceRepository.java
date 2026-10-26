@@ -66,6 +66,34 @@ public class PriceRepository {
         return bars.size();
     }
 
+    public LocalDate latestIndexDate(String code) {
+        return jdbc.sql("SELECT max(trade_date) FROM index_daily WHERE code = ?")
+                .param(code)
+                .query(LocalDate.class)
+                .optional()
+                .orElse(null);
+    }
+
+    public int upsertIndex(String code, List<YahooFinanceClient.DailyBar> bars, String source) {
+        jdbcTemplate.batchUpdate("""
+                INSERT INTO index_daily (code, trade_date, open, high, low, close, volume, source, fetched_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, now())
+                ON CONFLICT (code, trade_date) DO UPDATE SET
+                    open = EXCLUDED.open, high = EXCLUDED.high, low = EXCLUDED.low, close = EXCLUDED.close,
+                    volume = EXCLUDED.volume, source = EXCLUDED.source, fetched_at = EXCLUDED.fetched_at
+                """, bars, 500, (ps, bar) -> {
+            ps.setString(1, code);
+            ps.setDate(2, Date.valueOf(bar.date()));
+            ps.setBigDecimal(3, bar.open());
+            ps.setBigDecimal(4, bar.high());
+            ps.setBigDecimal(5, bar.low());
+            ps.setBigDecimal(6, bar.close());
+            if (bar.volume() == null) ps.setNull(7, Types.BIGINT); else ps.setLong(7, bar.volume());
+            ps.setString(8, source);
+        });
+        return bars.size();
+    }
+
     public long startRun(String source, Instant startedAt) {
         return jdbc.sql("INSERT INTO import_run (source, started_at) VALUES (?, ?) RETURNING id")
                 .params(source, Timestamp.from(startedAt))

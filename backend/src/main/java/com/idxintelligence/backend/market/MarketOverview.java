@@ -1,5 +1,6 @@
 package com.idxintelligence.backend.market;
 
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.List;
 
@@ -8,6 +9,7 @@ public record MarketOverview(
         String dataSource,
         String notice,
         OffsetDateTime generatedAt,
+        LocalDate dataDate,
         IndexSnapshot compositeIndex,
         int advancers,
         int decliners,

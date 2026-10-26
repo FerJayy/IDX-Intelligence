@@ -65,8 +65,11 @@ export async function StockOverview({ ticker, range }: { ticker: string; range: 
             {formatChange(quote.change)} ({formatPercent(quote.changePercent)})
           </p>
           <p className="text-xs text-slate-500">
-            Vol {formatCompact(quote.volume)} · Value Rp{formatCompact(quote.value)}
+            Vol {formatCompact(quote.volume)} · Est. value Rp{formatCompact(quote.value)}
           </p>
+          {quote.tradeDate && (
+            <p className="text-xs text-slate-500">Close of {formatTradingDate(quote.tradeDate)}</p>
+          )}
         </div>
       </header>
 
@@ -137,9 +140,13 @@ export async function StockOverview({ ticker, range }: { ticker: string; range: 
       </details>
 
       <p className="text-xs text-slate-500">
-        Source: {history.dataSource} · Generated {formatJakartaTime(history.generatedAt)}
+        Prices: {history.dataSource}
+        {history.dataDate && <> · End-of-day data through {formatTradingDate(history.dataDate)}</>}
+        {brokers && <> · Broker data: {brokers.dataSource}</>}
+        {" · "}Generated {formatJakartaTime(history.generatedAt)}
         {history.demo &&
           " · Demo history is invented, skips weekends but not IDX holidays, and is not market data."}
+        {!history.demo && " · Prices are not adjusted for stock splits or dividends."}
       </p>
     </div>
   );

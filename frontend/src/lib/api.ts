@@ -5,18 +5,20 @@ const API_BASE_URL = process.env.API_BASE_URL ?? "http://localhost:8080";
 export type StockQuote = {
   ticker: string;
   name: string;
-  sector: string;
+  sector: string | null;
+  tradeDate: string | null; // YYYY-MM-DD; null for demo data
   lastPrice: number | null;
   previousClose: number | null;
   change: number | null;
   changePercent: number | null;
   volume: number | null;
-  value: number | null;
+  value: number | null; // estimated: last price x volume
 };
 
 export type IndexSnapshot = {
   code: string;
   name: string;
+  tradeDate: string | null;
   value: number | null;
   previousClose: number | null;
   change: number | null;
@@ -28,7 +30,8 @@ export type MarketOverview = {
   dataSource: string;
   notice: string | null;
   generatedAt: string;
-  compositeIndex: IndexSnapshot;
+  dataDate: string | null; // trading day the data is from; null for demo data
+  compositeIndex: IndexSnapshot | null; // null until the index is imported
   advancers: number;
   decliners: number;
   unchanged: number;
@@ -42,15 +45,16 @@ type DataLabel = {
   dataSource: string;
   notice: string | null;
   generatedAt: string;
+  dataDate: string | null; // trading day the data is from; null for demo data
 };
 
 export type StockDetail = DataLabel & { quote: StockQuote };
 
 export type PriceBar = {
   date: string; // YYYY-MM-DD trading day
-  open: number;
-  high: number;
-  low: number;
+  open: number | null;
+  high: number | null;
+  low: number | null;
   close: number;
   volume: number | null;
 };
@@ -64,12 +68,10 @@ export type PriceHistory = DataLabel & {
   bars: PriceBar[];
 };
 
-export type BrokerType = "FOREIGN" | "DOMESTIC";
-
 // Volumes in shares (1 lot = 100 shares), values in IDR.
 export type BrokerPosition = {
   brokerCode: string;
-  brokerType: BrokerType;
+  brokerName: string | null;
   buyVolume: number;
   buyValue: number;
   buyAveragePrice: number | null;
@@ -78,6 +80,7 @@ export type BrokerPosition = {
   sellAveragePrice: number | null;
   netVolume: number;
   netValue: number;
+  foreignNetValue: number | null; // foreign investors via this broker; null = not known for every day
 };
 
 export type DailyBrokerFlow = {
@@ -88,17 +91,19 @@ export type DailyBrokerFlow = {
   concentration: number; // fraction of total volume, e.g. 0.06 = 6%
   buyerCount: number;
   sellerCount: number;
-  foreignNetValue: number;
-  cumulativeForeignNetValue: number;
+  foreignNetValue: number | null; // null = foreign flow not available that day
+  cumulativeForeignNetValue: number | null;
 };
 
 export type FlowStatus = "ACCUMULATION" | "NEUTRAL" | "DISTRIBUTION";
 
-export type BrokerSummary = DataLabel & {
+export type BrokerSummary = Omit<DataLabel, "dataDate"> & {
   ticker: string;
   range: PriceRange;
   from: string;
   to: string;
+  tradingDays: number; // trading days in the range
+  brokerDays: number; // of those, days with broker data (fewer while history is still importing)
   lastPrice: number | null;
   assessment: { status: FlowStatus; reasons: string[] };
   topBuyers: BrokerPosition[];

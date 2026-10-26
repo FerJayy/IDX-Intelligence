@@ -23,9 +23,16 @@ export function BrokerActivity({ summary }: { summary: BrokerSummary }) {
           )}
         </h2>
         <p className="text-xs text-slate-500">
-          {formatTradingDate(summary.from)} – {formatTradingDate(summary.to)}
+          {formatTradingDate(summary.from)} – {formatTradingDate(summary.to)} · Source: {summary.dataSource}
         </p>
       </div>
+
+      {!summary.demo && summary.brokerDays < summary.tradingDays && (
+        <p className="rounded-lg border border-sky-500/40 bg-sky-500/10 px-4 py-2 text-sm text-sky-200">
+          Broker data covers {summary.brokerDays} of {summary.tradingDays} trading days in this range.
+          History is still being imported (newest days first) and fills in a little more each day.
+        </p>
+      )}
 
       <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-5">
         <span
@@ -64,8 +71,7 @@ export function BrokerActivity({ summary }: { summary: BrokerSummary }) {
             means the buying sits in fewer hands.
           </Term>
           <Term name="Foreign net">
-            Net value bought by foreign-affiliated brokers. This is broker type, not investor
-            type: foreign investors can also trade through local brokers.
+            Net value bought by foreign investors, across all brokers they traded through.
           </Term>
           <Term name="Average price">
             Value divided by volume for that broker over the period: roughly where its position
@@ -95,7 +101,7 @@ function BrokerTable({
         <table className="mt-3 w-full text-sm tabular-nums">
           <thead className="text-left text-xs text-slate-500">
             <tr>
-              <th className="py-1 font-medium">Broker</th>
+              <th className="w-2/5 py-1 font-medium">Broker</th>
               <th className="py-1 text-right font-medium">Net lot</th>
               <th className="py-1 text-right font-medium">Net value</th>
               <th className="py-1 text-right font-medium">Avg {side === "buy" ? "buy" : "sell"}</th>
@@ -104,14 +110,13 @@ function BrokerTable({
           <tbody>
             {positions.map((p) => (
               <tr key={p.brokerCode} className="border-t border-slate-800">
-                <td className="py-2">
-                  <span className="font-mono font-semibold">{p.brokerCode}</span>
-                  <span
-                    className="ml-2 rounded bg-slate-800 px-1.5 py-0.5 text-[10px] font-semibold text-slate-400"
-                    title={p.brokerType === "FOREIGN" ? "Foreign broker" : "Domestic broker"}
-                  >
-                    {p.brokerType === "FOREIGN" ? "F" : "D"}
-                  </span>
+                <td className="max-w-0 py-2 pr-2">
+                  <div className="font-mono font-semibold">{p.brokerCode}</div>
+                  {p.brokerName && (
+                    <div className="truncate text-xs text-slate-500" title={p.brokerName}>
+                      {p.brokerName}
+                    </div>
+                  )}
                 </td>
                 <td className="py-2 text-right">{formatLots(Math.abs(p.netVolume))}</td>
                 <td className="py-2 text-right">{formatSignedRupiah(p.netValue)}</td>
