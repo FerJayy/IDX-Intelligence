@@ -1,5 +1,6 @@
 package com.idxintelligence.backend.signal;
 
+import com.idxintelligence.backend.Reason;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
@@ -61,9 +62,9 @@ class SignalTests {
         // breakout 25 + volume >= 2x 25 + close near high 15 + up today 10 + above rising 20-day average 15
         // (the breakout day itself lifts the average above its level 5 days earlier)
         assertThat(score.points()).isEqualTo(90);
-        assertThat(score.reasons()).extracting(MomentumScorer.Reason::text)
-                .anyMatch(t -> t.startsWith("Closed above its 20-day high"))
-                .anyMatch(t -> t.startsWith("Volume 2,5×"));
+        assertThat(score.reasons()).extracting(Reason::code)
+                .containsExactly("BREAKOUT_20D", "VOLUME_SPIKE", "CLOSE_NEAR_HIGH", "UP_TODAY", "ABOVE_RISING_MA20");
+        assertThat(score.reasons().get(1).values().get("ratio")).isEqualTo(2.5);
         assertThat(score.listed()).isTrue();
     }
 
@@ -88,7 +89,7 @@ class SignalTests {
         MomentumScorer.Score score = MomentumScorer.score(Features.at(bars, bars.size() - 1), null);
 
         assertThat(score.points()).isEqualTo(90);
-        assertThat(score.excludedBecause()).startsWith("Low liquidity");
+        assertThat(score.excludedBecause().code()).isEqualTo("LOW_LIQUIDITY");
         assertThat(score.listed()).isFalse();
     }
 
@@ -109,13 +110,13 @@ class SignalTests {
         BacktestService.Result result = BacktestService.run(Map.of("TEST", bars), ihsg, bars.getLast().date());
 
         BacktestService.HorizonStats nextDay = result.horizons().stream()
-                .filter(h -> h.horizonDays() == 1 && h.period().equals("All history")).findFirst().orElseThrow();
+                .filter(h -> h.horizonDays() == 1 && h.period() == BacktestService.Period.ALL).findFirst().orElseThrow();
         assertThat(nextDay.picks()).isEqualTo(1); // only the breakout day scores >= 50
         // +5% - 0,4% costs - IHSG's +1%
         assertThat(nextDay.avgExcess()).isCloseTo(0.05 - BacktestService.ROUND_TRIP_COST - 0.01, within(1e-9));
 
         BacktestService.HorizonStats fiveDays = result.horizons().stream()
-                .filter(h -> h.horizonDays() == 5 && h.period().equals("All history")).findFirst().orElseThrow();
+                .filter(h -> h.horizonDays() == 5 && h.period() == BacktestService.Period.ALL).findFirst().orElseThrow();
         // Entry at 1,000 open, exit at 1,050 close 5 days later; IHSG from 7.000 open to 7.000 close.
         assertThat(fiveDays.avgExcess()).isCloseTo(0.05 - BacktestService.ROUND_TRIP_COST, within(1e-9));
     }

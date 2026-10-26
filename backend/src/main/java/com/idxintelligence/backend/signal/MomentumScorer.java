@@ -1,14 +1,14 @@
 package com.idxintelligence.backend.signal;
 
-import com.idxintelligence.backend.IndonesianFormat;
+import com.idxintelligence.backend.Reason;
 
 import java.util.ArrayList;
 import java.util.List;
 
 /**
  * Scores a stock for the "strength / breakout" watchlist from end-of-day features. Each rule adds
- * or subtracts points and records a human-readable reason. Thresholds are starting points; the
- * backtest shows whether they help. The score is a ranking, not a probability.
+ * or subtracts points and records a reason code with its numbers. Thresholds are starting points;
+ * the backtest shows whether they help. The score is a ranking, not a probability.
  */
 final class MomentumScorer {
 
@@ -23,11 +23,8 @@ final class MomentumScorer {
     private MomentumScorer() {
     }
 
-    record Reason(String text, int points) {
-    }
-
-    /** @param excludedBecause non-null when the stock is filtered out; score and reasons still filled for display */
-    record Score(int points, List<Reason> reasons, String excludedBecause) {
+    /** @param excludedBecause non-null when the stock is filtered out; points and reasons still filled for display */
+    record Score(int points, List<Reason> reasons, Reason excludedBecause) {
         boolean listed() {
             return excludedBecause == null && points >= MIN_SCORE;
         }
@@ -36,54 +33,47 @@ final class MomentumScorer {
     /** @param broker recent broker flow, or null when not available (e.g. in the price-only backtest) */
     static Score score(Features f, BrokerSignal broker) {
         List<Reason> reasons = new ArrayList<>();
-        int points = 0;
 
         if (f.breakout()) {
-            points += add(reasons, 25, "Closed above its 20-day high (" + IndonesianFormat.integer(Math.round(f.priorHigh20())) + ")");
+            reasons.add(Reason.of("BREAKOUT_20D", 25, "level", Math.round(f.priorHigh20())));
         }
         if (f.volumeRatio() >= 2.0) {
-            points += add(reasons, 25, "Volume " + IndonesianFormat.decimal(f.volumeRatio()) + "× its 20-day average");
+            reasons.add(Reason.of("VOLUME_SPIKE", 25, "ratio", f.volumeRatio()));
         } else if (f.volumeRatio() >= 1.5) {
-            points += add(reasons, 15, "Volume " + IndonesianFormat.decimal(f.volumeRatio()) + "× its 20-day average");
+            reasons.add(Reason.of("VOLUME_SPIKE", 15, "ratio", f.volumeRatio()));
         }
         if (f.closeLocation() >= 0.8) {
-            points += add(reasons, 15, "Closed near the day's high (in the top fifth of its range)");
+            reasons.add(Reason.of("CLOSE_NEAR_HIGH", 15, "location", f.closeLocation()));
         }
         if (f.return1() > 0) {
-            points += add(reasons, 10, "Up " + IndonesianFormat.signedPercent(f.return1()) + " today");
+            reasons.add(Reason.of("UP_TODAY", 10, "change", f.return1()));
         }
         if (f.aboveRisingMa20()) {
-            points += add(reasons, 15, "Above a rising 20-day average");
+            reasons.add(Reason.of("ABOVE_RISING_MA20", 15, "ma20", Math.round(f.ma20())));
         }
 
         if (broker != null) {
             if (broker.avgConcentration() > 0.05) {
-                points += add(reasons, 10, "Top-5 brokers net buying: avg " + IndonesianFormat.signedPercent(broker.avgConcentration())
-                        + " of volume over the last " + broker.days() + " days");
+                reasons.add(Reason.of("BROKERS_NET_BUYING", 10, "avgConcentration", broker.avgConcentration(), "days", broker.days()));
             } else if (broker.avgConcentration() < -0.05) {
-                points += add(reasons, -10, "Top-5 brokers net selling: avg " + IndonesianFormat.signedPercent(broker.avgConcentration())
-                        + " of volume over the last " + broker.days() + " days");
+                reasons.add(Reason.of("BROKERS_NET_SELLING", -10, "avgConcentration", broker.avgConcentration(), "days", broker.days()));
             }
             if (broker.foreignNetValue() != null && broker.foreignNetValue().signum() != 0) {
                 boolean bought = broker.foreignNetValue().signum() > 0;
-                points += add(reasons, bought ? 10 : -10, "Foreign investors net " + (bought ? "bought" : "sold") + " Rp"
-                        + IndonesianFormat.compact(broker.foreignNetValue().abs()) + " over the last " + broker.days() + " days");
+                reasons.add(Reason.of(bought ? "FOREIGN_NET_BUY_RECENT" : "FOREIGN_NET_SELL_RECENT", bought ? 10 : -10,
+                        "value", broker.foreignNetValue(), "days", broker.days()));
             }
         }
+        int points = reasons.stream().mapToInt(Reason::points).sum();
 
-        String excluded = null;
+        Reason excluded = null;
         if (f.avgValue20() < MIN_AVG_VALUE) {
-            excluded = "Low liquidity: averages Rp" + IndonesianFormat.compact(java.math.BigDecimal.valueOf(f.avgValue20())) + " traded per day";
+            excluded = Reason.info("LOW_LIQUIDITY", "avgValue", Math.round(f.avgValue20()), "minValue", Math.round(MIN_AVG_VALUE));
         } else if (f.return1() >= NEAR_LIMIT_UP) {
-            excluded = "Up " + IndonesianFormat.signedPercent(f.return1()) + " today, likely at the daily limit: hard to buy at the open";
+            excluded = Reason.info("NEAR_LIMIT_UP", "change", f.return1());
         } else if (f.return5() > MAX_RETURN_5D) {
-            excluded = "Already up " + IndonesianFormat.signedPercent(f.return5()) + " in 5 days: high risk of chasing";
+            excluded = Reason.info("CHASING", "change5d", f.return5(), "maxChange5d", MAX_RETURN_5D);
         }
         return new Score(points, reasons, excluded);
-    }
-
-    private static int add(List<Reason> reasons, int points, String text) {
-        reasons.add(new Reason(text, points));
-        return points;
     }
 }

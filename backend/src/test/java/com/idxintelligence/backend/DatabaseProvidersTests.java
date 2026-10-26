@@ -99,7 +99,7 @@ class DatabaseProvidersTests extends EmbeddedPostgresTest {
         assertThat(summary.brokerDays()).isEqualTo(1);
         assertThat(summary.topBuyers().getFirst().brokerName()).isEqualTo("MIRAE ASSET SEKURITAS INDONESIA");
         assertThat(summary.daily().getFirst().foreignNetValue()).isEqualByComparingTo("-1020");
-        assertThat(summary.assessment().reasons().getFirst()).startsWith("Only 1 trading day");
+        assertThat(summary.assessment().reasons().getFirst().code()).isEqualTo("TOO_FEW_BROKER_DAYS");
     }
 
     private void price(String ticker, LocalDate date, long close, long volume) {

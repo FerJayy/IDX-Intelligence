@@ -1,0 +1,167 @@
+import type { Dictionary } from "./en";
+
+const n = (v: unknown) => (typeof v === "number" ? v : Number(v));
+
+export const id: Dictionary = {
+  meta: {
+    title: "IDX Intelligence",
+    description: "Riset saham Bursa Efek Indonesia: harga, aktivitas broker, dan sinyal yang diuji historis",
+  },
+  common: {
+    appName: "IDX Intelligence",
+    tagline: "Alat riset saham IDX — bukan saran investasi.",
+    demoNotice: "DATA DEMO — BUKAN DATA PASAR ASLI",
+    loadingMarket: "Memuat data pasar…",
+    loadingStock: "Memuat data saham…",
+    backendDown: "Data pasar tidak dapat dimuat. Pastikan backend berjalan di port 8080.",
+    source: "Sumber",
+    generated: "Dibuat",
+    endOfDayFor: (date: string) => `Data penutupan ${date}`,
+    endOfDayThrough: (date: string) => `Data penutupan hingga ${date}`,
+    demoFigures: "Angka dibuat-buat untuk pengembangan dan bukan harga pasar.",
+    estValueNote: "Nilai transaksi diperkirakan dari harga terakhir × volume. Bukan saran investasi.",
+  },
+  nav: {
+    overview: "Ringkasan",
+  },
+  theme: {
+    label: "Tema",
+    light: "Terang",
+    dark: "Gelap",
+    system: "Ikuti perangkat",
+  },
+  language: {
+    label: "Bahasa",
+    en: "English",
+    id: "Bahasa Indonesia",
+  },
+  overview: {
+    ihsg: "Indeks Harga Saham Gabungan (IHSG)",
+    ihsgMissing: "Belum diimpor — jalankan impor harga.",
+    breadth: "Sebaran pasar",
+    up: "Naik",
+    down: "Turun",
+    flat: "Tetap",
+    topGainers: "Kenaikan terbesar",
+    topLosers: "Penurunan terbesar",
+    mostActive: "Teraktif",
+    ticker: "Kode",
+    last: "Terakhir",
+    change: "Perubahan",
+    estValue: "Perk. nilai (Rp)",
+    noStocks: "Tidak ada saham.",
+  },
+  stock: {
+    back: "← Ringkasan pasar",
+    cannotLoad: (ticker: string) => `Data ${ticker} tidak dapat dimuat. Pastikan backend berjalan di port 8080.`,
+    closeOf: (date: string) => `Penutupan ${date}`,
+    vol: "Vol",
+    estValue: "Perk. nilai",
+    dailyPrice: "Harga harian",
+    priceRange: "Rentang harga",
+    priceTable: (days: number) => `Tabel harga (${days} hari bursa)`,
+    date: "Tanggal",
+    open: "Buka",
+    high: "Tertinggi",
+    low: "Terendah",
+    close: "Tutup",
+    volume: "Volume",
+    prices: "Harga",
+    brokerData: "Data broker",
+    demoHistory: "Riwayat demo dibuat-buat, melewati akhir pekan tetapi tidak libur bursa, dan bukan data pasar.",
+    notAdjusted: "Harga belum disesuaikan dengan pemecahan saham atau dividen.",
+    brokerUnavailable: "Aktivitas broker sedang tidak tersedia.",
+  },
+  chart: {
+    noHistory: "Riwayat harga tidak tersedia.",
+    date: "Tanggal",
+    open: "O",
+    high: "H",
+    low: "L",
+    close: "C",
+    change: "Ubah",
+    volume: "Vol",
+    concentration: "Konsentrasi 5 teratas",
+    buyersSellers: "Pembeli/Penjual",
+    foreignNet: "Net asing",
+    concentrationSeries: "Konsentrasi 5",
+    foreignSeries: "Net asing (kum.)",
+  },
+  broker: {
+    title: (range: string) => `Aktivitas broker · ${range}`,
+    demoTag: "DATA DEMO",
+    coverage: (brokerDays: number, tradingDays: number) =>
+      `Data broker mencakup ${brokerDays} dari ${tradingDays} hari bursa dalam rentang ini. Riwayat masih diimpor (hari terbaru lebih dulu) dan bertambah sedikit setiap hari.`,
+    status: { ACCUMULATION: "Akumulasi", NEUTRAL: "Netral", DISTRIBUTION: "Distribusi" },
+    disclaimer:
+      "Gambaran aliran broker di masa lalu berdasarkan aturan, bukan prediksi atau rekomendasi beli/jual. Aturan ini belum diuji historis.",
+    topBuyers: "Pembeli bersih terbesar",
+    topSellers: "Penjual bersih terbesar",
+    broker: "Broker",
+    netLot: "Net lot",
+    netValue: "Net nilai",
+    avgBuy: "Rata-rata beli",
+    avgSell: "Rata-rata jual",
+    none: "Tidak ada pada periode ini.",
+    howToRead: "Cara membaca",
+    terms: [
+      {
+        name: "Konsentrasi 5 teratas",
+        text: "Setiap hari: lot yang dibeli bersih oleh 5 pembeli bersih terbesar, dikurangi lot yang dijual bersih oleh 5 penjual bersih terbesar, sebagai bagian dari volume hari itu. Di atas nol berarti pembelian terkonsentrasi di sedikit broker sementara penjualan tersebar di banyak broker — tanda umum akumulasi. Di bawah nol sebaliknya.",
+      },
+      {
+        name: "Pembeli / penjual",
+        text: "Berapa broker yang menutup hari sebagai pembeli bersih dibanding penjual bersih. Pembeli yang lebih sedikit daripada penjual berarti pembelian terkumpul di lebih sedikit pihak.",
+      },
+      {
+        name: "Net asing",
+        text: "Nilai bersih yang dibeli investor asing, melalui semua broker yang mereka gunakan.",
+      },
+      {
+        name: "Harga rata-rata",
+        text: "Nilai dibagi volume untuk broker tersebut selama periode: kira-kira di harga berapa posisinya dibangun (pembeli) atau dilepas (penjual).",
+      },
+    ],
+  },
+  reasons: {
+    NO_BROKER_DATA: () => "Belum ada data broker untuk periode ini.",
+    TOO_FEW_BROKER_DAYS: (v) =>
+      `Baru ada ${v.days} hari bursa data broker; penilaian membutuhkan minimal ${v.minDays} hari.`,
+    CONCENTRATION_ACCUMULATION: (v, f) =>
+      `5 pembeli bersih terbesar menyerap lebih banyak daripada yang dilepas 5 penjual bersih terbesar: rata-rata ${f.signedFraction(n(v.avgConcentration))} dari volume harian (akumulasi di atas +${f.fraction(n(v.threshold))}).`,
+    CONCENTRATION_DISTRIBUTION: (v, f) =>
+      `5 penjual bersih terbesar melepas lebih banyak daripada yang diserap 5 pembeli bersih terbesar: rata-rata ${f.signedFraction(n(v.avgConcentration))} dari volume harian (distribusi di bawah -${f.fraction(n(v.threshold))}).`,
+    CONCENTRATION_BALANCED: (v, f) =>
+      `5 pembeli dan penjual bersih terbesar relatif seimbang: rata-rata ${f.signedFraction(n(v.avgConcentration))} dari volume harian.`,
+    BREADTH_BUYING_CONCENTRATED: (v, f) =>
+      `Broker yang net beli lebih sedikit daripada yang net jual pada ${f.fraction(n(v.share))} hari — pembelian terkonsentrasi di lebih sedikit pihak.`,
+    BREADTH_SELLING_CONCENTRATED: (v, f) =>
+      `Broker yang net beli lebih sedikit daripada yang net jual hanya pada ${f.fraction(n(v.share))} hari — penjualan terkonsentrasi di lebih sedikit pihak.`,
+    BREADTH_NEUTRAL: (v, f) =>
+      `Broker yang net beli lebih sedikit daripada yang net jual pada ${f.fraction(n(v.share))} hari.`,
+    FOREIGN_UNAVAILABLE: () => "Data aliran investor asing belum tersedia untuk periode ini.",
+    FOREIGN_NET_BUY: (v, f) =>
+      `Investor asing net beli ${f.rupiah(n(v.value))} selama periode ini${n(v.daysWithData) < n(v.days) ? ` (${v.daysWithData} dari ${v.days} hari dengan data asing)` : ""}.`,
+    FOREIGN_NET_SELL: (v, f) =>
+      `Investor asing net jual ${f.rupiah(Math.abs(n(v.value)))} selama periode ini${n(v.daysWithData) < n(v.days) ? ` (${v.daysWithData} dari ${v.days} hari dengan data asing)` : ""}.`,
+    TOP_BUYERS_AVG_PRICE: (v, f) =>
+      `Harga rata-rata beli 5 pembeli terbesar Rp${f.price(n(v.avgPrice))}; harga terakhir ${f.fraction(Math.abs(n(v.gap)))} ${n(v.gap) >= 0 ? "di atasnya" : "di bawahnya"}.`,
+    BREAKOUT_20D: (v, f) => `Ditutup di atas harga tertinggi 20 hari (${f.price(n(v.level))})`,
+    VOLUME_SPIKE: (v, f) => `Volume ${f.decimal1(n(v.ratio))}× rata-rata 20 hari`,
+    CLOSE_NEAR_HIGH: () => "Ditutup dekat harga tertinggi hari ini",
+    UP_TODAY: (v, f) => `Naik ${f.signedFraction(n(v.change))} hari ini`,
+    ABOVE_RISING_MA20: (v, f) => `Di atas rata-rata 20 hari yang sedang naik (${f.price(n(v.ma20))})`,
+    BROKERS_NET_BUYING: (v, f) =>
+      `5 broker teratas net beli: rata-rata ${f.signedFraction(n(v.avgConcentration))} dari volume dalam ${v.days} hari terakhir`,
+    BROKERS_NET_SELLING: (v, f) =>
+      `5 broker teratas net jual: rata-rata ${f.signedFraction(n(v.avgConcentration))} dari volume dalam ${v.days} hari terakhir`,
+    FOREIGN_NET_BUY_RECENT: (v, f) => `Investor asing net beli ${f.rupiah(n(v.value))} dalam ${v.days} hari terakhir`,
+    FOREIGN_NET_SELL_RECENT: (v, f) =>
+      `Investor asing net jual ${f.rupiah(Math.abs(n(v.value)))} dalam ${v.days} hari terakhir`,
+    LOW_LIQUIDITY: (v, f) =>
+      `Likuiditas rendah: rata-rata transaksi ${f.rupiah(n(v.avgValue))} per hari (minimal ${f.rupiah(n(v.minValue))})`,
+    NEAR_LIMIT_UP: (v, f) =>
+      `Naik ${f.signedFraction(n(v.change))} hari ini, kemungkinan menyentuh batas atas (ARA): sulit dibeli saat pembukaan`,
+    CHASING: (v, f) => `Sudah naik ${f.signedFraction(n(v.change5d))} dalam 5 hari: risiko tinggi mengejar harga`,
+  },
+};

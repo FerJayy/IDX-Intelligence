@@ -1,18 +1,13 @@
 import { unstable_rethrow } from "next/navigation";
 import { getMarketOverview, type MarketOverview as Overview } from "@/lib/api";
-import {
-  changeColor,
-  formatChange,
-  formatIndex,
-  formatJakartaTime,
-  formatPercent,
-  formatTradingDate,
-} from "@/lib/format";
+import { changeColor } from "@/lib/format";
+import { getI18n } from "@/lib/i18n";
 import { DemoBanner } from "./demo-banner";
 import { StockList } from "./stock-list";
 
 // Server Component: fetches on the server at request time, streamed in via <Suspense>.
 export async function MarketOverview() {
+  const { locale, t, f } = await getI18n();
   let overview: Overview;
   try {
     overview = await getMarketOverview();
@@ -20,8 +15,8 @@ export async function MarketOverview() {
     unstable_rethrow(error);
     console.error(error);
     return (
-      <div className="rounded-xl border border-red-900 bg-red-950/40 p-6 text-red-300">
-        Cannot load market data. Check that the backend is running on port 8080.
+      <div className="rounded-xl border border-danger-line bg-danger-bg p-6 text-danger-fg">
+        {t.common.backendDown}
       </div>
     );
   }
@@ -30,46 +25,46 @@ export async function MarketOverview() {
 
   return (
     <div className="space-y-6">
-      {overview.demo && <DemoBanner notice={overview.notice} />}
+      {overview.demo && <DemoBanner notice={t.common.demoNotice} />}
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <section className="rounded-xl border border-slate-800 bg-slate-900/50 p-5">
-          <p className="text-sm text-slate-400">{index?.name ?? "IDX Composite (IHSG)"}</p>
+        <section className="rounded-xl border border-line bg-card p-5">
+          <p className="text-sm text-muted">{t.overview.ihsg}</p>
           {index ? (
             <>
-              <p className="mt-2 text-3xl font-bold tabular-nums">{formatIndex(index.value)}</p>
+              <p className="mt-2 text-3xl font-bold tabular-nums">{f.index(index.value)}</p>
               <p className={`mt-1 tabular-nums ${changeColor(index.change)}`}>
-                {formatChange(index.change, 2)} ({formatPercent(index.changePercent)})
+                {f.change(index.change, 2)} ({f.percent(index.changePercent)})
               </p>
             </>
           ) : (
-            <p className="mt-2 text-sm text-slate-500">Not imported yet — run the price import.</p>
+            <p className="mt-2 text-sm text-faint">{t.overview.ihsgMissing}</p>
           )}
         </section>
 
-        <section className="rounded-xl border border-slate-800 bg-slate-900/50 p-5">
-          <p className="text-sm text-slate-400">Market breadth</p>
+        <section className="rounded-xl border border-line bg-card p-5">
+          <p className="text-sm text-muted">{t.overview.breadth}</p>
           <div className="mt-2 grid grid-cols-3 text-center">
-            <Breadth label="Up" count={overview.advancers} color="text-emerald-400" />
-            <Breadth label="Down" count={overview.decliners} color="text-red-400" />
-            <Breadth label="Flat" count={overview.unchanged} color="text-slate-300" />
+            <Breadth label={t.overview.up} count={overview.advancers} color="text-up" />
+            <Breadth label={t.overview.down} count={overview.decliners} color="text-down" />
+            <Breadth label={t.overview.flat} count={overview.unchanged} color="text-fg" />
           </div>
         </section>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
-        <StockList title="Top gainers" stocks={overview.topGainers} metric="changePercent" />
-        <StockList title="Top losers" stocks={overview.topLosers} metric="changePercent" />
-        <StockList title="Most active" stocks={overview.mostActive} metric="value" />
+        <StockList locale={locale} title={t.overview.topGainers} stocks={overview.topGainers} metric="changePercent" />
+        <StockList locale={locale} title={t.overview.topLosers} stocks={overview.topLosers} metric="changePercent" />
+        <StockList locale={locale} title={t.overview.mostActive} stocks={overview.mostActive} metric="value" />
       </div>
 
-      <p className="text-xs text-slate-500">
-        Source: {overview.dataSource}
-        {overview.dataDate && <> · End-of-day data for {formatTradingDate(overview.dataDate)}</>}
-        {" · "}Generated {formatJakartaTime(overview.generatedAt)}
-        {overview.demo
-          ? " · Figures are invented for development and are not market prices."
-          : " · Traded value is estimated as last price × volume. Not investment advice."}
+      <p className="text-xs text-faint">
+        {t.common.source}: {overview.dataSource}
+        {overview.dataDate && <> · {t.common.endOfDayFor(f.tradingDate(overview.dataDate))}</>}
+        {" · "}
+        {t.common.generated} {f.jakartaTime(overview.generatedAt)}
+        {" · "}
+        {overview.demo ? t.common.demoFigures : t.common.estValueNote}
       </p>
     </div>
   );
@@ -79,7 +74,7 @@ function Breadth({ label, count, color }: { label: string; count: number; color:
   return (
     <div>
       <p className={`text-3xl font-bold tabular-nums ${color}`}>{count}</p>
-      <p className="text-xs text-slate-500">{label}</p>
+      <p className="text-xs text-faint">{label}</p>
     </div>
   );
 }

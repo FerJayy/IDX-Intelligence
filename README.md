@@ -82,7 +82,7 @@ npm install        # first time only
 npm run dev
 ```
 
-Open http://localhost:3000. If the backend is not running, the dashboard shows "Cannot load market data".
+Open http://localhost:3000. It redirects to `/en` or `/id` (English or Bahasa Indonesia, switchable in the header, remembered per browser). The header also switches light / dark / follow-device theme. If the backend is not running, the dashboard shows "Cannot load market data".
 
 ### Configuration
 

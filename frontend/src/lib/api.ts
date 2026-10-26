@@ -1,3 +1,5 @@
+import type { Reason } from "@/lib/i18n/reasons";
+
 // Server-only: API_BASE_URL has no NEXT_PUBLIC_ prefix, so it never reaches the browser.
 const API_BASE_URL = process.env.API_BASE_URL ?? "http://localhost:8080";
 
@@ -105,7 +107,7 @@ export type BrokerSummary = Omit<DataLabel, "dataDate"> & {
   tradingDays: number; // trading days in the range
   brokerDays: number; // of those, days with broker data (fewer while history is still importing)
   lastPrice: number | null;
-  assessment: { status: FlowStatus; reasons: string[] };
+  assessment: { status: FlowStatus; reasons: Reason[] };
   topBuyers: BrokerPosition[];
   topSellers: BrokerPosition[];
   daily: DailyBrokerFlow[];

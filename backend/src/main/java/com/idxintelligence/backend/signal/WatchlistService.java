@@ -1,5 +1,6 @@
 package com.idxintelligence.backend.signal;
 
+import com.idxintelligence.backend.Reason;
 import com.idxintelligence.backend.broker.BrokerAnalysisService;
 import com.idxintelligence.backend.broker.BrokerDailyActivity;
 import com.idxintelligence.backend.broker.BrokerDataProvider;
@@ -16,7 +17,6 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 
 /**
  * Tonight's watchlist: every tracked stock scored on its latest close, strongest first.
@@ -115,7 +115,7 @@ public class WatchlistService {
     private static Candidate candidate(SignalDataRepository.StockInfo stock, Features f, BrokerSignal broker,
                                        MomentumScorer.Score score) {
         return new Candidate(stock.ticker(), stock.name(), stock.sector(), score.points(),
-                score.reasons().stream().map(r -> new Reason(r.text(), r.points())).toList(),
+                score.reasons(),
                 price(f.close()), price(f.high()), price(f.low()), price(f.priorHigh20()), price(f.ma20()),
                 Double.isNaN(f.volumeRatio()) ? null : round(f.volumeRatio(), 2),
                 round(f.return1(), 4),
@@ -128,12 +128,12 @@ public class WatchlistService {
         BacktestService.Result result = backtest.result();
         BacktestService.HorizonStats one = find(result, 1);
         BacktestService.HorizonStats five = find(result, 5);
-        return new BacktestHeadline(result.from(), result.to(), "Last 3 years", one, five);
+        return new BacktestHeadline(result.from(), result.to(), BacktestService.Period.LAST_3_YEARS, one, five);
     }
 
     private static BacktestService.HorizonStats find(BacktestService.Result result, int days) {
         return result.horizons().stream()
-                .filter(h -> h.horizonDays() == days && Objects.equals(h.period(), "Last 3 years"))
+                .filter(h -> h.horizonDays() == days && h.period() == BacktestService.Period.LAST_3_YEARS)
                 .findFirst().orElse(null);
     }
 
@@ -154,9 +154,6 @@ public class WatchlistService {
         return BigDecimal.valueOf(value).setScale(scale, RoundingMode.HALF_UP).doubleValue();
     }
 
-    public record Reason(String text, int points) {
-    }
-
     /**
      * @param close          latest close (adjusted for splits/dividends; on the latest day this equals the traded price)
      * @param priorHigh20    highest high of the 20 days before today: the breakout level
@@ -169,10 +166,10 @@ public class WatchlistService {
                             String topBuyerCode, String topBuyerName, BigDecimal topBuyerAvgPrice) {
     }
 
-    public record Skipped(String ticker, String name, int score, String reason) {
+    public record Skipped(String ticker, String name, int score, Reason reason) {
     }
 
-    public record BacktestHeadline(LocalDate from, LocalDate to, String period,
+    public record BacktestHeadline(LocalDate from, LocalDate to, BacktestService.Period period,
                                    BacktestService.HorizonStats nextDay, BacktestService.HorizonStats fiveDays) {
     }
 

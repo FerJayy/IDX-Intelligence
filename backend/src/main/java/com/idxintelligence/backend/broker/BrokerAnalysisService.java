@@ -1,6 +1,6 @@
 package com.idxintelligence.backend.broker;
 
-import com.idxintelligence.backend.IndonesianFormat;
+import com.idxintelligence.backend.Reason;
 import com.idxintelligence.backend.market.MarketDataProvider;
 import com.idxintelligence.backend.market.MarketService;
 import com.idxintelligence.backend.market.PriceRange;
@@ -9,14 +9,12 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.text.NumberFormat;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.TreeMap;
@@ -37,8 +35,6 @@ public class BrokerAnalysisService {
     static final BigDecimal CONCENTRATION_THRESHOLD = new BigDecimal("0.05");
     static final double CONCENTRATED_DAYS_HIGH = 0.60;
     static final double CONCENTRATED_DAYS_LOW = 0.40;
-
-    private static final Locale INDONESIA = Locale.forLanguageTag("id-ID");
 
     private final BrokerDataProvider brokerData;
     private final MarketDataProvider marketData;
@@ -140,15 +136,14 @@ public class BrokerAnalysisService {
     }
 
     static FlowAssessment assess(List<DailyBrokerFlow> daily, List<BrokerPosition> topBuyers, BigDecimal lastPrice) {
-        if (daily.size() < MIN_DAYS_FOR_ASSESSMENT) {
-            return new FlowAssessment(FlowAssessment.Status.NEUTRAL, List.of(daily.isEmpty()
-                    ? "No broker data for this period yet."
-                    : "Only " + daily.size() + " trading day" + (daily.size() == 1 ? "" : "s")
-                      + " of broker data so far; an assessment needs at least " + MIN_DAYS_FOR_ASSESSMENT + "."));
+        if (daily.isEmpty()) {
+            return new FlowAssessment(FlowAssessment.Status.NEUTRAL, List.of(Reason.info("NO_BROKER_DATA")));
         }
-        NumberFormat percent = NumberFormat.getPercentInstance(INDONESIA);
-        percent.setMaximumFractionDigits(1);
-        List<String> reasons = new ArrayList<>();
+        if (daily.size() < MIN_DAYS_FOR_ASSESSMENT) {
+            return new FlowAssessment(FlowAssessment.Status.NEUTRAL, List.of(
+                    Reason.info("TOO_FEW_BROKER_DAYS", "days", daily.size(), "minDays", MIN_DAYS_FOR_ASSESSMENT)));
+        }
+        List<Reason> reasons = new ArrayList<>();
         int score = 0;
 
         // 1. Is net buying concentrated in a few brokers while selling is spread out (or the reverse)?
@@ -157,14 +152,12 @@ public class BrokerAnalysisService {
         int concentrationBias = avgConcentration.compareTo(CONCENTRATION_THRESHOLD) > 0 ? 1
                 : avgConcentration.compareTo(CONCENTRATION_THRESHOLD.negate()) < 0 ? -1 : 0;
         score += concentrationBias;
-        reasons.add(switch (concentrationBias) {
-            case 1 -> "Top 5 net buyers took in more than top 5 net sellers let go: average "
-                    + signed(percent, avgConcentration) + " of daily volume (accumulation above +5%).";
-            case -1 -> "Top 5 net sellers let go more than top 5 net buyers took in: average "
-                    + signed(percent, avgConcentration) + " of daily volume (distribution below -5%).";
-            default -> "Top 5 net buyers and sellers were roughly balanced: average "
-                    + signed(percent, avgConcentration) + " of daily volume.";
-        });
+        reasons.add(Reason.of(switch (concentrationBias) {
+                    case 1 -> "CONCENTRATION_ACCUMULATION";
+                    case -1 -> "CONCENTRATION_DISTRIBUTION";
+                    default -> "CONCENTRATION_BALANCED";
+                }, concentrationBias,
+                "avgConcentration", avgConcentration, "threshold", CONCENTRATION_THRESHOLD));
 
         // 2. On how many days were fewer brokers buying than selling (buying in fewer hands)?
         double concentratedShare = daily.stream().filter(d -> d.buyerCount() < d.sellerCount()).count()
@@ -172,24 +165,21 @@ public class BrokerAnalysisService {
         int breadthBias = concentratedShare > CONCENTRATED_DAYS_HIGH ? 1
                 : concentratedShare < CONCENTRATED_DAYS_LOW ? -1 : 0;
         score += breadthBias;
-        reasons.add("Fewer brokers were net buying than net selling on " + percent.format(concentratedShare)
-                + " of days" + switch (breadthBias) {
-                    case 1 -> " — buying concentrated in fewer hands.";
-                    case -1 -> " — selling concentrated in fewer hands.";
-                    default -> ".";
-                });
+        reasons.add(Reason.of(switch (breadthBias) {
+            case 1 -> "BREADTH_BUYING_CONCENTRATED";
+            case -1 -> "BREADTH_SELLING_CONCENTRATED";
+            default -> "BREADTH_NEUTRAL";
+        }, breadthBias, "share", concentratedShare));
 
         // 3. Did foreign investors net buy or sell? Only days where foreign flow is known count.
         List<DailyBrokerFlow> foreignDays = daily.stream().filter(d -> d.foreignNetValue() != null).toList();
         if (foreignDays.isEmpty()) {
-            reasons.add("Foreign investor flow is not available for this period yet.");
+            reasons.add(Reason.info("FOREIGN_UNAVAILABLE"));
         } else {
             BigDecimal foreignNet = sum(foreignDays.stream().map(DailyBrokerFlow::foreignNetValue).toList());
             score += foreignNet.signum();
-            String coverage = foreignDays.size() == daily.size() ? ""
-                    : " (" + foreignDays.size() + " of " + daily.size() + " days with foreign data)";
-            reasons.add("Foreign investors net " + (foreignNet.signum() >= 0 ? "bought" : "sold")
-                    + " Rp" + IndonesianFormat.compact(foreignNet.abs()) + " over the period" + coverage + ".");
+            reasons.add(Reason.of(foreignNet.signum() >= 0 ? "FOREIGN_NET_BUY" : "FOREIGN_NET_SELL", foreignNet.signum(),
+                    "value", foreignNet, "daysWithData", foreignDays.size(), "days", daily.size()));
         }
 
         // Context only, not scored: where the main buyers' average cost sits versus today's price.
@@ -198,8 +188,7 @@ public class BrokerAnalysisService {
         BigDecimal buyersAverage = averagePrice(buyValue, buyVolume);
         if (buyersAverage != null && lastPrice != null) {
             BigDecimal gap = lastPrice.subtract(buyersAverage).divide(buyersAverage, 4, RoundingMode.HALF_UP);
-            reasons.add("Top 5 buyers' average buy price is Rp" + NumberFormat.getIntegerInstance(INDONESIA).format(buyersAverage)
-                    + "; the last price is " + percent.format(gap.abs()) + (gap.signum() >= 0 ? " above" : " below") + " it.");
+            reasons.add(Reason.info("TOP_BUYERS_AVG_PRICE", "avgPrice", buyersAverage, "lastPrice", lastPrice, "gap", gap));
         }
 
         FlowAssessment.Status status = score >= 2 ? FlowAssessment.Status.ACCUMULATION
@@ -219,9 +208,5 @@ public class BrokerAnalysisService {
     /** Sum, or null if any value is missing (a partial sum would look like a real total). */
     private static BigDecimal sumIfAllKnown(List<BigDecimal> values) {
         return values.stream().anyMatch(Objects::isNull) ? null : sum(values);
-    }
-
-    private static String signed(NumberFormat percent, BigDecimal fraction) {
-        return (fraction.signum() > 0 ? "+" : "") + percent.format(fraction);
     }
 }

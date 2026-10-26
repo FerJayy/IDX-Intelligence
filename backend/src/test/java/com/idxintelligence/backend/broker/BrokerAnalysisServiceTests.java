@@ -1,6 +1,6 @@
 package com.idxintelligence.backend.broker;
 
-import com.idxintelligence.backend.IndonesianFormat;
+import com.idxintelligence.backend.Reason;
 
 import org.junit.jupiter.api.Test;
 
@@ -68,7 +68,8 @@ class BrokerAnalysisServiceTests {
         FlowAssessment assessment = BrokerAnalysisService.assess(daily, positions.subList(0, 1), new BigDecimal("110"));
 
         assertThat(assessment.status()).isEqualTo(FlowAssessment.Status.ACCUMULATION);
-        assertThat(assessment.reasons()).hasSize(4);
+        assertThat(assessment.reasons()).extracting(Reason::code).containsExactly(
+                "CONCENTRATION_ACCUMULATION", "BREADTH_BUYING_CONCENTRATED", "FOREIGN_NET_BUY", "TOP_BUYERS_AVG_PRICE");
     }
 
     @Test
@@ -99,8 +100,10 @@ class BrokerAnalysisServiceTests {
                 BrokerAnalysisService.dailyFlows(rows), List.of(), BigDecimal.ONE);
 
         assertThat(assessment.status()).isEqualTo(FlowAssessment.Status.NEUTRAL);
-        assertThat(assessment.reasons()).containsExactly(
-                "Only 3 trading days of broker data so far; an assessment needs at least 5.");
+        assertThat(assessment.reasons()).singleElement().satisfies(r -> {
+            assertThat(r.code()).isEqualTo("TOO_FEW_BROKER_DAYS");
+            assertThat(r.values()).containsEntry("days", 3).containsEntry("minDays", 5);
+        });
     }
 
     @Test
@@ -126,14 +129,6 @@ class BrokerAnalysisServiceTests {
     void noDataIsNeutral() {
         FlowAssessment assessment = BrokerAnalysisService.assess(List.of(), List.of(), BigDecimal.ONE);
         assertThat(assessment.status()).isEqualTo(FlowAssessment.Status.NEUTRAL);
-    }
-
-    @Test
-    void compactUsesIndonesianShortScale() {
-        assertThat(IndonesianFormat.compact(new BigDecimal("1905020470112"))).isEqualTo("1,9 T");
-        assertThat(IndonesianFormat.compact(new BigDecimal("806012737441"))).isEqualTo("806 M");
-        assertThat(IndonesianFormat.compact(new BigDecimal("12500000"))).isEqualTo("12,5 jt");
-        assertThat(IndonesianFormat.compact(new BigDecimal("950"))).isEqualTo("950");
     }
 
     /** Values use price 100. A "foreign" broker's whole flow counts as foreign investors'. */

@@ -134,25 +134,17 @@ public class BacktestService {
             buckets.add(bucket(byDate, band[0], band[1]));
         }
 
-        List<String> notes = List.of(
-                "Price signals only. Broker signals are part of the live score but not tested yet: broker history is too short.",
-                (entryMode == Entry.NEXT_OPEN ? "Buy at the next day's open" : "Buy at the signal day's close (pre-closing auction)")
-                        + "; sell at the close 1 or 5 trading days later. " + pct(ROUND_TRIP_COST) + " trading costs per round trip included.",
-                "'Excess' = return after costs minus IHSG over the same days. Baseline = buying every stock in the list every day.",
-                "Universe is today's " + barsByTicker.size() + " large, liquid stocks; stocks that were delisted or shrank aren't included, which flatters results somewhat (survivorship bias).",
-                "Past results don't guarantee future results.");
+        // Explanatory notes are written by the frontend from these fields, in the reader's language.
         return new Result(OffsetDateTime.now(JAKARTA), entryMode, first, latest, barsByTicker.size(), ROUND_TRIP_COST,
-                PICKS_PER_DAY, MomentumScorer.MIN_SCORE, horizons, buckets, notes);
+                PICKS_PER_DAY, MomentumScorer.MIN_SCORE, horizons, buckets);
     }
 
-    enum Period {
-        LAST_YEAR("Last 12 months", 1), LAST_3_YEARS("Last 3 years", 3), ALL("All history", 100);
+    public enum Period {
+        LAST_YEAR(1), LAST_3_YEARS(3), ALL(100);
 
-        final String label;
         final int years;
 
-        Period(String label, int years) {
-            this.label = label;
+        Period(int years) {
             this.years = years;
         }
     }
@@ -180,7 +172,7 @@ public class BacktestService {
                 pickNet.add(o.net()[h]);
             });
         }
-        return new HorizonStats(HORIZONS[h], period.label, picks.size(), daysWithPicks,
+        return new HorizonStats(HORIZONS[h], period, picks.size(), daysWithPicks,
                 known(hitRate(picks)), known(mean(picks)), known(median(picks)), known(mean(pickNet)),
                 known(mean(baseline)), known(hitRate(baseline)));
     }
@@ -195,8 +187,7 @@ public class BacktestService {
                 if (!Double.isNaN(o.excess()[1])) five.add(o.excess()[1]);
             }
         }
-        String label = min == Integer.MIN_VALUE ? "below 30" : max == Integer.MAX_VALUE ? min + " and up" : min + "–" + max;
-        return new BucketStats(label, one.size(), known(mean(one)), known(hitRate(one)),
+        return new BucketStats(min == Integer.MIN_VALUE ? null : min, max == Integer.MAX_VALUE ? null : max, one.size(), known(mean(one)), known(hitRate(one)),
                 known(mean(five)), known(hitRate(five)));
     }
 
@@ -221,10 +212,6 @@ public class BacktestService {
         return values.isEmpty() ? Double.NaN : values.stream().filter(v -> v > 0).count() / (double) values.size();
     }
 
-    private static String pct(double fraction) {
-        return String.format(java.util.Locale.forLanguageTag("id-ID"), "%.1f%%", fraction * 100);
-    }
-
     /**
      * Numbers are fractions (0.012 = 1,2%); null when there were no observations.
      *
@@ -233,18 +220,20 @@ public class BacktestService {
      * @param avgNetReturn       average return after costs (not compared with IHSG)
      * @param baselineAvgExcess  same, for buying every stock each day
      */
-    public record HorizonStats(int horizonDays, String period, int picks, int daysWithPicks, Double hitRate,
+    public record HorizonStats(int horizonDays, Period period, int picks, int daysWithPicks, Double hitRate,
                                Double avgExcess, Double medianExcess, Double avgNetReturn,
                                Double baselineAvgExcess, Double baselineHitRate) {
     }
 
-    /** All scored stock-days in a score band (not only the top picks): does a higher score do better? */
-    public record BucketStats(String scoreBand, int observations, Double avgExcess1d, Double hitRate1d,
+    /**
+     * All scored stock-days in a score band (not only the top picks): does a higher score do better?
+     * minScore/maxScore are inclusive; null means open-ended.
+     */
+    public record BucketStats(Integer minScore, Integer maxScore, int observations, Double avgExcess1d, Double hitRate1d,
                               Double avgExcess5d, Double hitRate5d) {
     }
 
     public record Result(OffsetDateTime generatedAt, Entry entry, LocalDate from, LocalDate to, int stocks, double roundTripCost,
-                         int picksPerDay, int minScore, List<HorizonStats> horizons, List<BucketStats> scoreBands,
-                         List<String> notes) {
+                         int picksPerDay, int minScore, List<HorizonStats> horizons, List<BucketStats> scoreBands) {
     }
 }

@@ -1,26 +1,112 @@
 @import "tailwindcss";
 
+/*
+ * Semantic colour tokens. Components use these (bg-page, text-muted, text-up, ...) instead of
+ * fixed colours, so light and dark themes are one class switch on <html>.
+ * Up/down pairs were checked for colour-vision deficiency on each theme's surface;
+ * charts also use hollow vs filled candles so direction never relies on colour alone.
+ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --page: #f8fafc;
+  --card: #ffffff;
+  --card-strong: #f1f5f9;
+  --line: #e2e8f0;
+  --fg: #0f172a;
+  --muted: #475569;
+  --faint: #64748b;
+  --accent: #0369a1;
+  --chip: #f1f5f9;
+  --up: #047857;
+  --down: #dc2626;
+  --warn-bg: #fffbeb;
+  --warn-fg: #92400e;
+  --warn-line: #f59e0b;
+  --info-bg: #f0f9ff;
+  --info-fg: #075985;
+  --info-line: #7dd3fc;
+  --danger-bg: #fef2f2;
+  --danger-fg: #991b1b;
+  --danger-line: #fecaca;
+  --up-bg: #ecfdf5;
+  --up-line: #6ee7b7;
+  --down-bg: #fef2f2;
+  --down-line: #fca5a5;
+
+  --chart-up: #059669;
+  --chart-down: #dc2626;
+  --chart-volume: #94a3b8;
+  --chart-grid: #e2e8f0;
+  --chart-text: #475569;
+  --chart-foreign: #0284c7;
+  color-scheme: light;
+}
+
+:root.dark {
+  --page: #020617;
+  --card: #0b1222;
+  --card-strong: #0f172a;
+  --line: #1e293b;
+  --fg: #f1f5f9;
+  --muted: #94a3b8;
+  --faint: #64748b;
+  --accent: #7dd3fc;
+  --chip: #1e293b;
+  --up: #34d399;
+  --down: #f87171;
+  --warn-bg: rgb(245 158 11 / 0.1);
+  --warn-fg: #fcd34d;
+  --warn-line: rgb(245 158 11 / 0.6);
+  --info-bg: rgb(14 165 233 / 0.1);
+  --info-fg: #bae6fd;
+  --info-line: rgb(14 165 233 / 0.4);
+  --danger-bg: rgb(127 29 29 / 0.35);
+  --danger-fg: #fca5a5;
+  --danger-line: #7f1d1d;
+  --up-bg: rgb(16 185 129 / 0.1);
+  --up-line: rgb(16 185 129 / 0.5);
+  --down-bg: rgb(239 68 68 / 0.1);
+  --down-line: rgb(239 68 68 / 0.5);
+
+  --chart-up: #34d399;
+  --chart-down: #ef4444;
+  --chart-volume: #475569;
+  --chart-grid: #1e293b;
+  --chart-text: #94a3b8;
+  --chart-foreign: #38bdf8;
+  color-scheme: dark;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-page: var(--page);
+  --color-card: var(--card);
+  --color-card-strong: var(--card-strong);
+  --color-line: var(--line);
+  --color-fg: var(--fg);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-accent: var(--accent);
+  --color-chip: var(--chip);
+  --color-up: var(--up);
+  --color-down: var(--down);
+  --color-warn-bg: var(--warn-bg);
+  --color-warn-fg: var(--warn-fg);
+  --color-warn-line: var(--warn-line);
+  --color-info-bg: var(--info-bg);
+  --color-info-fg: var(--info-fg);
+  --color-info-line: var(--info-line);
+  --color-danger-bg: var(--danger-bg);
+  --color-danger-fg: var(--danger-fg);
+  --color-danger-line: var(--danger-line);
+  --color-up-bg: var(--up-bg);
+  --color-up-line: var(--up-line);
+  --color-down-bg: var(--down-bg);
+  --color-down-line: var(--down-line);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--page);
+  color: var(--fg);
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
 }
