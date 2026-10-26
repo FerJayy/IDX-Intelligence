@@ -24,6 +24,20 @@ Planned later: PostgreSQL (Neon), frontend on Vercel, backend on Render. Target 
 
 Maven is not needed; the backend includes the Maven wrapper (`mvnw.cmd`).
 
+## Database setup (first time)
+
+The backend uses PostgreSQL on [Neon](https://neon.tech) (free tier, Singapore region). Tables are created automatically by Flyway from `backend/src/main/resources/db/migration/` on startup.
+
+1. In Neon: project → **Connect**, turn **off** connection pooling, copy the `postgresql://...` connection string.
+2. Create `backend/.env` from it:
+   ```powershell
+   cd backend
+   powershell -ExecutionPolicy Bypass -File scripts\neon-to-env.ps1
+   ```
+   Paste the string when asked. (Or copy `.env.example` to `.env` and fill it in by hand.) `.env` is git-ignored — never commit it.
+
+The backend will not start without `backend/.env` (or `DB_URL`, `DB_USERNAME`, `DB_PASSWORD` environment variables). Tests do **not** use Neon: they start their own embedded PostgreSQL (first run downloads it, a few minutes).
+
 ## Running locally
 
 Run the backend and frontend in two terminals (PowerShell).
