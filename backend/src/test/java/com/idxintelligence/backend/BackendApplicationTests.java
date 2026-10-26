@@ -38,6 +38,8 @@ class BackendApplicationTests extends EmbeddedPostgresTest {
 	@Test
 	void adminImportRejectsMissingOrWrongToken() throws Exception {
 		mockMvc.perform(post("/api/admin/import/prices")).andExpect(status().isForbidden());
+		mockMvc.perform(post("/api/admin/import/brokers")).andExpect(status().isForbidden());
+		mockMvc.perform(get("/api/admin/stats")).andExpect(status().isForbidden());
 		mockMvc.perform(post("/api/admin/import/prices").header("X-Admin-Token", "wrong"))
 				.andExpect(status().isForbidden());
 	}

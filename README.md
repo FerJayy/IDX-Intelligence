@@ -38,17 +38,26 @@ The backend uses PostgreSQL on [Neon](https://neon.tech) (free tier, Singapore r
 
 The backend will not start without `backend/.env` (or `DB_URL`, `DB_USERNAME`, `DB_PASSWORD` environment variables). Tests do **not** use Neon: they start their own embedded PostgreSQL (first run downloads it, a few minutes).
 
-## Importing real prices
+## Importing real data
 
-Daily prices for every stock in the `stock` table come from Yahoo Finance (unofficial endpoint; personal, non-commercial use) into `daily_price`.
+| Data | Source | Table | Schedule (while the backend runs) |
+|------|--------|-------|------------------------------------|
+| Daily prices | Yahoo Finance (unofficial endpoint, no key; personal non-commercial use) | `daily_price` | Weekdays 17:00 WIB |
+| Broker summaries (all investors + foreign) | IDX Edge PRO (`IDX_EDGE_API_KEY` in `backend/.env`) | `broker_daily_activity` | Daily 19:30 WIB |
 
-- **Automatic:** weekdays at 17:00 WIB while the backend is running.
-- **Manual** (backend running):
-  ```powershell
-  cd backend
-  powershell -ExecutionPolicy Bypass -File scripts\import-prices.ps1
-  ```
-  The first time, this adds a random `ADMIN_TOKEN` to `backend/.env`; restart the backend and run it again. The first import backfills 10 years (~2 minutes); later runs fetch only the last week (~30 seconds). Re-running is always safe.
+Every stock in the `stock` table is imported. Re-running any import is always safe.
+
+**Manual runs** (backend running, from `backend/`):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\import.ps1 prices    # ~2 min first time (10-year backfill), ~30 s after
+powershell -ExecutionPolicy Bypass -File scripts\import.ps1 brokers   # up to 800 requests, ~15 min
+powershell -ExecutionPolicy Bypass -File scripts\import.ps1 stats     # row counts and storage vs Neon's 512 MB
+```
+
+The first time, `import.ps1` adds a random `ADMIN_TOKEN` to `backend/.env`; restart the backend and run it again.
+
+**Broker quota:** IDX Edge's free tier allows 1,000 requests/day (reset 00:00 WIB), and one request = one stock on one day. Each run fetches newest days first, then extends history backwards (default: 1 year), and stops when 150 requests are left. A full 1-year backfill for 34 stocks takes about 20 daily runs. Store a new secret in `.env` without it appearing on screen with `scripts\set-secret.ps1 NAME`.
 
 Each run is logged in the `import_run` table.
 
