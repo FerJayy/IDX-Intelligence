@@ -37,7 +37,7 @@ export const id: Dictionary = {
   },
   live: {
     badge: "LIVE",
-    updated: (time: string) => `per ${time} WIB`,
+    updated: "per {time} WIB",
     lots: "Volume",
     value: "Nilai",
     vwap: "VWAP",

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { LiveResult } from "@/lib/api";
 import { changeColor, makeFormat } from "@/lib/format";
-import type { Dictionary } from "@/lib/i18n/en";
+import type { ClientLabels, Dictionary } from "@/lib/i18n/en";
 import type { Locale } from "@/lib/i18n/locales";
 
 const REFRESH_MS = 60_000;
@@ -23,7 +23,7 @@ function fetchLive(ticker: string): Promise<LiveResult> {
  * Real-time price box. Asks once on open, then every minute while the tab is visible, for at most
  * 15 minutes (then "Resume"). Shows nothing outside market hours: the page's end-of-day data applies.
  */
-export function LivePrice({ ticker, locale, labels }: { ticker: string; locale: Locale; labels: Dictionary["live"] }) {
+export function LivePrice({ ticker, locale, labels }: { ticker: string; locale: Locale; labels: ClientLabels<Dictionary["live"]> }) {
   const f = useMemo(() => makeFormat(locale), [locale]);
   const [result, setResult] = useState<LiveResult | null>(null);
   const [paused, setPaused] = useState(false);
@@ -74,7 +74,7 @@ export function LivePrice({ ticker, locale, labels }: { ticker: string; locale: 
           <span className={`h-1.5 w-1.5 rounded-full bg-current ${halted ? "" : "animate-pulse"}`} aria-hidden />
           {labels.badge}
         </span>
-        {q.dataTime && <span className="text-muted">{labels.updated(q.dataTime)}</span>}
+        {q.dataTime && <span className="text-muted">{labels.updated.replace("{time}", q.dataTime)}</span>}
         {q.marketLabel && <span className="text-faint">{q.marketLabel}</span>}
       </div>
       <div className="mt-2 flex flex-wrap items-baseline gap-x-4 gap-y-1 tabular-nums">

@@ -13,7 +13,7 @@ import {
 } from "lightweight-charts";
 import type { Candle, DailyBrokerFlow } from "@/lib/api";
 import { changeColor, makeFormat } from "@/lib/format";
-import type { Dictionary } from "@/lib/i18n/en";
+import type { ClientLabels, Dictionary } from "@/lib/i18n/en";
 import type { Locale } from "@/lib/i18n/locales";
 
 // Stable default: a fresh [] each render would re-run the chart effect on every hover.
@@ -52,7 +52,7 @@ function chartTime(candle: Candle, intraday: boolean): Time {
 
 type Props = {
   locale: Locale;
-  labels: Dictionary["chart"];
+  labels: ClientLabels<Dictionary["chart"]>;
   candles: Candle[];
   intraday: boolean;
   /** Daily broker flow, matched to daily candles by date. Ignored for other intervals. */

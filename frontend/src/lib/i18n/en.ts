@@ -41,7 +41,8 @@ export const en = {
   },
   live: {
     badge: "LIVE",
-    updated: (time: string) => `as of ${time} WIB`,
+    // Plain string (not a function): these labels are passed to a Client Component.
+    updated: "as of {time} WIB",
     lots: "Volume",
     value: "Value",
     vwap: "VWAP",
@@ -351,3 +352,10 @@ export const en = {
 };
 
 export type Dictionary = typeof en;
+
+/**
+ * Labels handed to Client Components must be plain strings: functions can't be sent from the
+ * server to the browser (React throws "Functions cannot be passed directly to Client Components").
+ * Using this type in a client prop turns that runtime crash into a type error.
+ */
+export type ClientLabels<T> = { [K in keyof T]: T[K] extends string ? T[K] : never };
