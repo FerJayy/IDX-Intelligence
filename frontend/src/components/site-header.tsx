@@ -19,6 +19,9 @@ export async function SiteHeader() {
             <Link href={`/${locale}/stocks`} className="hover:text-fg">
               {t.nav.stocks}
             </Link>
+            <Link href={`/${locale}/ihsg`} className="hover:text-fg">
+              {t.nav.ihsg}
+            </Link>
           </nav>
         </div>
         <div className="flex items-center gap-2">

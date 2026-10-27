@@ -42,6 +42,7 @@ export type MarketOverview = {
   topGainers: StockQuote[];
   topLosers: StockQuote[];
   mostActive: StockQuote[];
+  sparklines: Record<string, number[]>; // last ~20 closes per listed ticker, oldest first
 };
 
 type DataLabel = {
@@ -130,6 +131,7 @@ export type StockList = DataLabel & {
 export type StockListQuery = {
   search?: string;
   sector?: string;
+  change?: "up" | "down" | "flat";
   sort?: StockSort;
   order?: "asc" | "desc";
   page?: number;
@@ -139,6 +141,7 @@ export async function getStockList(query: StockListQuery): Promise<StockList> {
   const params = new URLSearchParams();
   if (query.search) params.set("search", query.search);
   if (query.sector) params.set("sector", query.sector);
+  if (query.change) params.set("change", query.change);
   params.set("sort", query.sort ?? "marketCap");
   params.set("order", query.order ?? "desc");
   params.set("page", String(query.page ?? 1));
@@ -148,6 +151,62 @@ export async function getStockList(query: StockListQuery): Promise<StockList> {
     throw new Error(`Stock list request failed: ${response.status}`);
   }
   return response.json();
+}
+
+export const INTERVALS = ["15m", "1h", "4h", "1d", "1w", "1mo"] as const;
+export type Interval = (typeof INTERVALS)[number];
+
+/** time = candle start, epoch seconds UTC. Daily+ candles start at 00:00 UTC of their trading date. */
+export type Candle = {
+  time: number;
+  open: number | null;
+  high: number | null;
+  low: number | null;
+  close: number;
+  volume: number | null;
+};
+
+export type CandleSeries = Omit<DataLabel, "dataDate"> & {
+  symbol: string;
+  interval: Interval;
+  range: string;
+  ranges: string[]; // ranges offered for this interval
+  intraday: boolean; // fetched live from the source, possibly delayed
+  adjusted: boolean; // adjusted for splits and dividends
+  candles: Candle[];
+};
+
+async function getCandles(path: string, interval: Interval, range?: string): Promise<CandleSeries | null> {
+  const params = new URLSearchParams({ interval });
+  if (range) params.set("range", range);
+  const response = await fetch(`${API_BASE_URL}${path}/candles?${params}`);
+  if (response.status === 404) return null;
+  if (!response.ok) {
+    throw new Error(`Candles request failed: ${response.status}`);
+  }
+  return response.json();
+}
+
+export function getStockCandles(ticker: string, interval: Interval, range?: string) {
+  return getCandles(`/api/stocks/${encodeURIComponent(ticker)}`, interval, range);
+}
+
+export function getIndexCandles(interval: Interval, range?: string) {
+  return getCandles(`/api/index/COMPOSITE`, interval, range);
+}
+
+export type IndexDetail = Omit<DataLabel, "dataDate"> & { index: IndexSnapshot | null };
+
+export async function getIndex(): Promise<IndexDetail> {
+  const response = await fetch(`${API_BASE_URL}/api/index/COMPOSITE`);
+  if (!response.ok) {
+    throw new Error(`Index request failed: ${response.status}`);
+  }
+  return response.json();
+}
+
+export function parseInterval(value: string | string[] | undefined): Interval {
+  return typeof value === "string" && (INTERVALS as readonly string[]).includes(value) ? (value as Interval) : "1d";
 }
 
 export async function getMarketOverview(): Promise<MarketOverview> {

@@ -28,6 +28,28 @@ export const en = {
   nav: {
     overview: "Overview",
     stocks: "Stocks",
+    ihsg: "IHSG",
+  },
+  chartControls: {
+    interval: "Candle size",
+    range: "Range",
+    intervals: { "15m": "15m", "1h": "1H", "4h": "4H", "1d": "1D", "1w": "1W", "1mo": "1Mo" },
+    intradayNote: "Intraday candles from Yahoo Finance, possibly delayed; refreshed at most every 10 minutes.",
+    adjustedNote: "Prices adjusted for stock splits and dividends.",
+    brokerDailyOnly: "Broker panels are shown on daily (1D) candles.",
+  },
+  dashboard: {
+    openIhsg: "Open IHSG chart →",
+    seeAll: "See all →",
+    tabs: { gainers: "Top gainers", losers: "Top losers", active: "Most active" },
+    trend: "20 days",
+    breadthHint: "Click a number to list those stocks",
+    moversNote: "Gainers and losers only count stocks with at least Rp1 miliar traded that day.",
+  },
+  ihsg: {
+    title: "IDX Composite (IHSG)",
+    back: "← Market overview",
+    cannotLoad: "Cannot load the IHSG. Check that the backend is running on port 8080.",
   },
   theme: {
     label: "Theme",
@@ -95,7 +117,7 @@ export const en = {
     estValue: "Est. value",
     dailyPrice: "Daily price",
     priceRange: "Price range",
-    priceTable: (days: number) => `Price table (${days} trading days)`,
+    priceTable: (days: number) => `Price table (${days} candles)`,
     date: "Date",
     open: "Open",
     high: "High",

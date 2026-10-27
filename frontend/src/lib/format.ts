@@ -20,6 +20,9 @@ export function makeFormat(locale: Locale) {
   const dateTime = new Intl.DateTimeFormat(tag, { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Jakarta" });
   const tradingDay = new Intl.DateTimeFormat(tag, { dateStyle: "medium", timeZone: "UTC" });
   const tradingDayLong = new Intl.DateTimeFormat(tag, { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" });
+  const intradayTime = new Intl.DateTimeFormat(tag, {
+    day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Asia/Jakarta",
+  });
 
   const sign = (value: number) => (value > 0 ? "+" : "");
 
@@ -53,6 +56,10 @@ export function makeFormat(locale: Locale) {
     /** "YYYY-MM-DD" trading day, without shifting it across time zones. */
     tradingDate: (date: string) => tradingDay.format(new Date(`${date}T00:00:00Z`)),
     tradingDateLong: (date: string) => tradingDayLong.format(new Date(`${date}T00:00:00Z`)),
+    /** Candle start (epoch seconds) as a Jakarta date and time: "27 Okt 14.00 WIB". */
+    intradayTime: (epochSeconds: number) => `${intradayTime.format(new Date(epochSeconds * 1000))} WIB`,
+    /** Daily candle start (epoch seconds at 00:00 UTC) as its trading date. */
+    candleDate: (epochSeconds: number) => tradingDay.format(new Date(epochSeconds * 1000)),
   };
 }
 

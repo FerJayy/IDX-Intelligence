@@ -27,6 +27,7 @@ function parseQuery(query: Record<string, string | string[] | undefined>): Stock
   return {
     search: one("search")?.slice(0, 50),
     sector: one("sector"),
+    change: ["up", "down", "flat"].includes(one("change") ?? "") ? (one("change") as "up" | "down" | "flat") : undefined,
     sort: (STOCK_SORTS as readonly string[]).includes(sort ?? "") ? (sort as StockSort) : "marketCap",
     order: one("order") === "asc" ? "asc" : "desc",
     page: Number.isInteger(page) && page > 0 ? page : 1,

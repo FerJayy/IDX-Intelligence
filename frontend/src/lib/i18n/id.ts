@@ -24,6 +24,28 @@ export const id: Dictionary = {
   nav: {
     overview: "Ringkasan",
     stocks: "Saham",
+    ihsg: "IHSG",
+  },
+  chartControls: {
+    interval: "Ukuran candle",
+    range: "Rentang",
+    intervals: { "15m": "15m", "1h": "1H", "4h": "4H", "1d": "1D", "1w": "1W", "1mo": "1Mo" },
+    intradayNote: "Candle intraday dari Yahoo Finance, mungkin tertunda; diperbarui paling cepat tiap 10 menit.",
+    adjustedNote: "Harga disesuaikan dengan pemecahan saham dan dividen.",
+    brokerDailyOnly: "Panel broker ditampilkan pada candle harian (1D).",
+  },
+  dashboard: {
+    openIhsg: "Buka grafik IHSG →",
+    seeAll: "Lihat semua →",
+    tabs: { gainers: "Kenaikan terbesar", losers: "Penurunan terbesar", active: "Teraktif" },
+    trend: "20 hari",
+    breadthHint: "Klik angka untuk melihat daftar sahamnya",
+    moversNote: "Kenaikan dan penurunan hanya menghitung saham dengan transaksi minimal Rp1 miliar hari itu.",
+  },
+  ihsg: {
+    title: "Indeks Harga Saham Gabungan (IHSG)",
+    back: "← Ringkasan pasar",
+    cannotLoad: "IHSG tidak dapat dimuat. Pastikan backend berjalan di port 8080.",
   },
   theme: {
     label: "Tema",
@@ -91,7 +113,7 @@ export const id: Dictionary = {
     estValue: "Perk. nilai",
     dailyPrice: "Harga harian",
     priceRange: "Rentang harga",
-    priceTable: (days: number) => `Tabel harga (${days} hari bursa)`,
+    priceTable: (days: number) => `Tabel harga (${days} candle)`,
     date: "Tanggal",
     open: "Buka",
     high: "Tertinggi",

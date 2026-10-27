@@ -26,6 +26,7 @@ export async function StockTable({ query }: { query: StockListQuery }) {
     const params = new URLSearchParams();
     if (query.search) params.set("search", query.search);
     if (query.sector) params.set("sector", query.sector);
+    if (query.change) params.set("change", query.change);
     params.set("sort", query.sort ?? "marketCap");
     params.set("order", query.order ?? "desc");
     params.set("page", String(page));
@@ -61,6 +62,7 @@ export async function StockTable({ query }: { query: StockListQuery }) {
             </option>
           ))}
         </select>
+        {query.change && <input type="hidden" name="change" value={query.change} />}
         <select name="order" defaultValue={query.order} aria-label={t.stockList.sortBy} className={field}>
           <option value="desc">{t.stockList.order.desc}</option>
           <option value="asc">{t.stockList.order.asc}</option>
