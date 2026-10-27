@@ -58,10 +58,10 @@ jobs:
           echo "Running: $job"
 
       # --- Mode 1: run the backend inside this job ---
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         if: env.BACKEND_URL == ''
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         if: env.BACKEND_URL == ''
         with:
           distribution: temurin
