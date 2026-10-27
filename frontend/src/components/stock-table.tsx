@@ -85,15 +85,15 @@ export async function StockTable({ query }: { query: StockListQuery }) {
         <p className="rounded-xl border border-line bg-card p-6 text-sm text-faint">{t.stockList.noMatch}</p>
       ) : (
         <div className="overflow-x-auto rounded-xl border border-line bg-card">
-          <table className="w-full min-w-[44rem] text-sm tabular-nums">
+          <table className="w-full text-sm tabular-nums md:min-w-[44rem]">
             <thead className="bg-card-strong text-left text-xs text-faint">
               <tr>
                 <th className="px-3 py-2 font-medium">{t.stockList.stock}</th>
-                <th className="px-3 py-2 font-medium">{t.stockList.sector}</th>
+                <th className="hidden px-3 py-2 font-medium md:table-cell">{t.stockList.sector}</th>
                 <th className="px-3 py-2 text-right font-medium">{t.stockList.last}</th>
                 <th className="px-3 py-2 text-right font-medium">{t.stockList.change}</th>
-                <th className="px-3 py-2 text-right font-medium">{t.stockList.value}</th>
-                <th className="px-3 py-2 text-right font-medium">{t.stockList.marketCap}</th>
+                <th className="hidden px-3 py-2 text-right font-medium sm:table-cell">{t.stockList.value}</th>
+                <th className="hidden px-3 py-2 text-right font-medium md:table-cell">{t.stockList.marketCap}</th>
               </tr>
             </thead>
             <tbody>
@@ -116,11 +116,11 @@ export async function StockTable({ query }: { query: StockListQuery }) {
                       <span className="block truncate text-xs text-faint">{s.name}</span>
                     </Link>
                   </td>
-                  <td className="px-3 py-2 text-xs text-muted">{s.sector ?? t.stockList.unknownSector}</td>
+                  <td className="hidden px-3 py-2 text-xs text-muted md:table-cell">{s.sector ?? t.stockList.unknownSector}</td>
                   <td className="px-3 py-2 text-right">{f.price(s.lastPrice)}</td>
                   <td className={`px-3 py-2 text-right ${changeColor(s.changePercent)}`}>{f.percent(s.changePercent)}</td>
-                  <td className="px-3 py-2 text-right">{f.rupiah(s.value)}</td>
-                  <td className="px-3 py-2 text-right">{f.rupiah(s.marketCap)}</td>
+                  <td className="hidden px-3 py-2 text-right sm:table-cell">{f.rupiah(s.value)}</td>
+                  <td className="hidden px-3 py-2 text-right md:table-cell">{f.rupiah(s.marketCap)}</td>
                 </tr>
               ))}
             </tbody>

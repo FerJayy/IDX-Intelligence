@@ -1,42 +1,46 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { getI18n } from "@/lib/i18n";
 import { LanguageSwitch } from "./language-switch";
+import { NavLinks, NavList, type NavItem } from "./nav-links";
 import { ThemeSwitch } from "./theme-switch";
 
 export async function SiteHeader() {
   const { locale, t } = await getI18n();
+  const items: NavItem[] = [
+    { href: `/${locale}`, label: t.nav.overview },
+    { href: `/${locale}/stocks`, label: t.nav.stocks },
+    { href: `/${locale}/radar`, label: t.nav.radar },
+    { href: `/${locale}/brokers`, label: t.nav.brokers },
+    { href: `/${locale}/ihsg`, label: t.nav.ihsg },
+    { href: `/${locale}/watchlist`, label: t.nav.watchlist },
+  ];
   return (
     <header className="border-b border-line bg-card">
-      <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-8">
-        <div className="flex items-center gap-6">
-          <Link href={`/${locale}`} className="font-bold tracking-tight">
-            {t.common.appName}
-          </Link>
-          <nav className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted">
-            <Link href={`/${locale}`} className="hover:text-fg">
-              {t.nav.overview}
+      <div className="mx-auto max-w-6xl px-4 sm:px-8">
+        <div className="flex items-center justify-between gap-3 py-3">
+          <div className="flex items-center gap-6">
+            <Link href={`/${locale}`} className="font-bold tracking-tight">
+              {t.common.appName}
             </Link>
-            <Link href={`/${locale}/stocks`} className="hover:text-fg">
-              {t.nav.stocks}
-            </Link>
-            <Link href={`/${locale}/radar`} className="hover:text-fg">
-              {t.nav.radar}
-            </Link>
-            <Link href={`/${locale}/brokers`} className="hover:text-fg">
-              {t.nav.brokers}
-            </Link>
-            <Link href={`/${locale}/ihsg`} className="hover:text-fg">
-              {t.nav.ihsg}
-            </Link>
-            <Link href={`/${locale}/watchlist`} className="hover:text-fg">
-              {t.nav.watchlist}
-            </Link>
-          </nav>
+            {/* Wide screens: one line next to the name. */}
+            <nav aria-label={t.nav.label} className="hidden gap-4 text-sm text-muted md:flex">
+              <Suspense fallback={<NavList items={items} variant="bar" />}>
+                <NavLinks items={items} variant="bar" />
+              </Suspense>
+            </nav>
+          </div>
+          <div className="flex items-center gap-2">
+            <LanguageSwitch locale={locale} labels={t.language} />
+            <ThemeSwitch labels={t.theme} />
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <LanguageSwitch locale={locale} labels={t.language} />
-          <ThemeSwitch labels={t.theme} />
-        </div>
+        {/* Phones: tappable pills on their own rows instead of squeezed text. */}
+        <nav aria-label={t.nav.label} className="flex flex-wrap gap-2 pb-3 text-sm md:hidden">
+          <Suspense fallback={<NavList items={items} variant="pills" />}>
+            <NavLinks items={items} variant="pills" />
+          </Suspense>
+        </nav>
       </div>
     </header>
   );

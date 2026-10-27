@@ -37,26 +37,26 @@ async function BrokerList() {
   }
   return (
     <div className="overflow-x-auto rounded-xl border border-line bg-card">
-      <table className="w-full min-w-[32rem] text-sm tabular-nums">
+      <table className="w-full text-sm tabular-nums">
         <thead className="bg-card-strong text-left text-xs text-faint">
           <tr>
             <th className="px-3 py-2 font-medium">{t.brokers.code}</th>
-            <th className="px-3 py-2 text-right font-medium">{t.brokers.stocks}</th>
-            <th className="px-3 py-2 text-right font-medium">{t.brokers.gross}</th>
+            <th className="hidden px-3 py-2 text-right font-medium sm:table-cell">{t.brokers.stocks}</th>
+            <th className="hidden px-3 py-2 text-right font-medium sm:table-cell">{t.brokers.gross}</th>
             <th className="px-3 py-2 text-right font-medium">{t.brokers.net}</th>
           </tr>
         </thead>
         <tbody>
           {brokers.map((b) => (
             <tr key={b.code} className="border-t border-line hover:bg-card-strong">
-              <td className="max-w-72 px-3 py-2">
+              <td className="w-full max-w-0 px-3 py-2">
                 <Link href={`/${locale}/brokers/${b.code}`} className="group block">
                   <span className="font-mono font-semibold group-hover:text-accent group-hover:underline">{b.code}</span>
-                  <span className="ml-2 truncate text-xs text-faint">{b.name}</span>
+                  <span className="block truncate text-xs text-faint sm:ml-2 sm:inline">{b.name}</span>
                 </Link>
               </td>
-              <td className="px-3 py-2 text-right">{b.stocks}</td>
-              <td className="px-3 py-2 text-right">{f.rupiah(b.grossValue)}</td>
+              <td className="hidden px-3 py-2 text-right sm:table-cell">{b.stocks}</td>
+              <td className="hidden px-3 py-2 text-right sm:table-cell">{f.rupiah(b.grossValue)}</td>
               <td className={`px-3 py-2 text-right ${changeColor(b.netValue)}`}>{f.signedRupiah(b.netValue)}</td>
             </tr>
           ))}

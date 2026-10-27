@@ -22,6 +22,7 @@ export const id: Dictionary = {
     estValueNote: "Nilai transaksi diperkirakan dari harga terakhir × volume. Bukan saran investasi.",
   },
   nav: {
+    label: "Menu utama",
     overview: "Ringkasan",
     stocks: "Saham",
     ihsg: "IHSG",

@@ -202,7 +202,7 @@ function RadarCard({ row, rank, locale, t, f }: { row: RadarRow; rank: number; l
           <p className="text-xs text-faint">#{rank}</p>
           <Link href={`/${locale}/stocks/${row.ticker}`} className="group">
             <span className="font-mono text-xl font-bold group-hover:text-accent group-hover:underline">{row.ticker}</span>
-            <span className="ml-2 text-sm text-muted">{row.name}</span>
+            <span className="block text-sm text-muted sm:ml-2 sm:inline">{row.name}</span>
           </Link>
         </div>
         <div className="flex flex-col items-end gap-1">

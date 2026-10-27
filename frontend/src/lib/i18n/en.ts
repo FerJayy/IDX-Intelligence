@@ -26,6 +26,7 @@ export const en = {
     estValueNote: "Traded value is estimated as last price × volume. Not investment advice.",
   },
   nav: {
+    label: "Main menu",
     overview: "Overview",
     stocks: "Stocks",
     ihsg: "IHSG",

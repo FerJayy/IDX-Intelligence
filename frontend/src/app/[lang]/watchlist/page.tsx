@@ -45,7 +45,7 @@ export default async function WatchlistPage({ searchParams }: PageProps<"/[lang]
               autoCapitalize="characters"
               autoComplete="off"
               placeholder={t.watchlist.addPlaceholder}
-              className="w-32 rounded-md border border-line bg-card px-3 py-1.5 font-mono text-sm uppercase text-fg"
+              className="w-32 rounded-md border border-line bg-card px-3 py-1.5 font-mono text-sm uppercase text-fg placeholder:normal-case"
             />
           </label>
           <button type="submit" className="rounded-md bg-chip px-4 py-1.5 text-sm font-semibold text-fg hover:bg-card-strong">
