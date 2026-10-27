@@ -262,6 +262,65 @@ export async function getLivePrice(ticker: string): Promise<LiveResult> {
   return response.json();
 }
 
+export const RADAR_WINDOWS = [5, 10, 20] as const;
+export type RadarWindow = (typeof RADAR_WINDOWS)[number];
+
+export type RadarRow = {
+  ticker: string;
+  name: string;
+  score: number;
+  status: FlowStatus;
+  brokerDays: number;
+  accumulationStreak: number; // +n days of top-5 net buying in a row, -n of net selling
+  avgConcentration: number;
+  foreignNetValue: number | null;
+  foreignDays: number;
+  streakBroker: { code: string; name: string | null; days: number; netValue: number; averageBuyPrice: number | null } | null;
+  buyersAveragePrice: number | null;
+  lastPrice: number | null;
+  exitGap: number | null; // last price / top buyers' average cost - 1
+  return5d: number | null;
+  aboveRisingMa20: boolean;
+  reasons: Reason[];
+  excludedBecause: Reason | null;
+};
+
+export type PickOutcome = {
+  pickDate: string;
+  ticker: string;
+  bucket: string;
+  claimedWinRate: number | null; // provider's claim, percent
+  claimedPotential: number | null;
+  entryClose: number | null;
+  returns: (number | null)[]; // after 1, 3, 5 trading days
+  excess: (number | null)[]; // same, minus IHSG
+};
+
+export type OutcomeSummary = {
+  days: number;
+  picks: number;
+  hitRate: number | null;
+  averageReturn: number | null;
+  averageExcess: number | null;
+};
+
+export type Radar = {
+  generatedAt: string;
+  brokerDataDate: string | null;
+  windowDays: RadarWindow;
+  trackedStocks: number;
+  rows: RadarRow[];
+  screener: { picks: PickOutcome[]; summary: OutcomeSummary[]; averageClaimedWinRate: number | null };
+};
+
+export async function getRadar(window: RadarWindow): Promise<Radar> {
+  const response = await fetch(`${API_BASE_URL}/api/watchlist/radar?window=${window}`);
+  if (!response.ok) {
+    throw new Error(`Radar request failed: ${response.status}`);
+  }
+  return response.json();
+}
+
 export async function getMarketOverview(): Promise<MarketOverview> {
   const response = await fetch(`${API_BASE_URL}/api/market/overview`);
   if (!response.ok) {

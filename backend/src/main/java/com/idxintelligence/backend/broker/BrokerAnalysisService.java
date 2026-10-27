@@ -136,7 +136,7 @@ public class BrokerAnalysisService {
         return flows;
     }
 
-    static FlowAssessment assess(List<DailyBrokerFlow> daily, List<BrokerPosition> topBuyers, BigDecimal lastPrice) {
+    public static FlowAssessment assess(List<DailyBrokerFlow> daily, List<BrokerPosition> topBuyers, BigDecimal lastPrice) {
         if (daily.isEmpty()) {
             return new FlowAssessment(FlowAssessment.Status.NEUTRAL, List.of(Reason.info("NO_BROKER_DATA")));
         }

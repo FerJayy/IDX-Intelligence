@@ -25,6 +25,7 @@ export const id: Dictionary = {
     overview: "Ringkasan",
     stocks: "Saham",
     ihsg: "IHSG",
+    radar: "Radar Broker",
   },
   chartControls: {
     interval: "Ukuran candle",
@@ -46,6 +47,50 @@ export const id: Dictionary = {
     budgetUsed: "Batas harga live hari ini sudah habis; harga di bawah tertunda.",
     unavailable: "Harga live sedang tidak tersedia; harga di bawah tertunda.",
     source: "Real-time dari running trade IDX melalui IDX Edge; diperbarui tiap menit selama halaman ini terbuka.",
+  },
+  radar: {
+    title: "Radar Broker",
+    intro:
+      "Saham yang dipantau, diurutkan menurut aliran broker terbaru: konsistensi lebih dulu, dikonfirmasi harga. Ini menggambarkan yang sudah terjadi, bukan yang akan terjadi, dan aturannya belum diuji historis.",
+    window: "Rentang",
+    windowLabel: (days: number) => `${days} hari`,
+    dataAsOf: (date: string) => `Data broker hingga ${date}`,
+    tracked: (n: number) => `${n} saham dipantau`,
+    addMore: "Tambah saham dengan “Muat data broker” di halamannya.",
+    rank: "#",
+    stock: "Saham",
+    score: "Skor",
+    status: "Aliran",
+    streak: "Beruntun",
+    streakUp: (days: number) => `▲ ${days}h beli`,
+    streakDown: (days: number) => `▼ ${days}h jual`,
+    streakNone: "—",
+    leadBroker: "Broker utama",
+    leadBrokerValue: (code: string, days: number) => `${code} · ${days}h`,
+    concentration: "Konsentrasi 5",
+    foreign: "Asing",
+    costGap: "vs modal pembeli",
+    change5d: "5H",
+    why: "Alasan",
+    reasonsCount: (n: number) => `${n} alasan`,
+    empty: "Belum ada saham dipantau yang memiliki data broker.",
+    filteredTitle: "Disaring",
+    filteredHint: "Aliran kuat, tetapi saat ini sulit diperdagangkan dengan wajar.",
+    screenerTitle: "Pilihan screener IDX Edge — diukur",
+    screenerIntro:
+      "Pilihan harian seluruh pasar dari screener IDX Edge. Win rate mereka adalah klaim penyedia; hasil di bawah adalah pergerakan harga sebenarnya setelah tiap pilihan (penutupan ke penutupan).",
+    claimedWinRate: (pct: string) => `Klaim win rate (rata-rata): ${pct}`,
+    afterDays: (days: number) => `Setelah ${days} hari`,
+    picksMeasured: (n: number) => `${n} pilihan diukur`,
+    hitRate: "Naik",
+    avgReturn: "Rata-rata",
+    vsIhsg: "vs IHSG",
+    notYet: "Belum cukup hari",
+    pickDate: "Tanggal",
+    bucket: "Kelompok",
+    claimed: "Klaim WR",
+    entry: "Penutupan",
+    noPicks: "Belum ada pilihan tersimpan. Disimpan setiap hari bursa pukul 19.15 WIB.",
   },
   dashboard: {
     openIhsg: "Buka grafik IHSG →",
@@ -238,6 +283,24 @@ export const id: Dictionary = {
     FOREIGN_NET_BUY_RECENT: (v, f) => `Investor asing net beli ${f.rupiah(n(v.value))} dalam ${v.days} hari terakhir`,
     FOREIGN_NET_SELL_RECENT: (v, f) =>
       `Investor asing net jual ${f.rupiah(Math.abs(n(v.value)))} dalam ${v.days} hari terakhir`,
+    RADAR_BROKER_DATA_BEHIND: (v) => `Data broker saham ini baru sampai ${v.latestDay}; masih dimuat.`,
+    RADAR_ACCUMULATION_STREAK: (v) => `5 broker teratas net beli ${v.days} hari berturut-turut`,
+    RADAR_DISTRIBUTION_STREAK: (v) => `5 broker teratas net jual ${v.days} hari berturut-turut`,
+    RADAR_CONCENTRATED_BUYING: (v, f) =>
+      `Pembelian terkonsentrasi di sedikit broker: rata-rata ${f.signedFraction(n(v.avgConcentration))} dari volume dalam ${v.days} hari`,
+    RADAR_CONCENTRATED_SELLING: (v, f) =>
+      `Penjualan terkonsentrasi di sedikit broker: rata-rata ${f.signedFraction(n(v.avgConcentration))} dari volume dalam ${v.days} hari`,
+    RADAR_FOREIGN_BUYING: (v, f) => `Investor asing net beli ${f.rupiah(n(v.value))} dalam ${v.days} hari`,
+    RADAR_FOREIGN_SELLING: (v, f) => `Investor asing net jual ${f.rupiah(Math.abs(n(v.value)))} dalam ${v.days} hari`,
+    RADAR_BROKER_STREAK: (v, f) =>
+      `${v.broker}${v.name ? ` (${v.name})` : ""} net beli ${v.days} hari berturut-turut, harga rata-rata ${f.price(n(v.averagePrice))}`,
+    RADAR_ABOVE_RISING_MA20: (v, f) => `Harga di atas rata-rata 20 hari yang sedang naik (${f.price(n(v.ma20))})`,
+    RADAR_NEAR_BUYERS_COST: (v, f) =>
+      `Harga ${f.fraction(n(v.gap))} di atas modal rata-rata pembeli utama (${f.price(n(v.averagePrice))}): belum terlalu tinggi`,
+    RADAR_FAR_ABOVE_BUYERS_COST: (v, f) =>
+      `Harga ${f.fraction(n(v.gap))} di atas modal rata-rata pembeli utama (${f.price(n(v.averagePrice))}): mereka mungkin ambil untung`,
+    RADAR_BELOW_BUYERS_COST: (v, f) =>
+      `Harga ${f.fraction(Math.abs(n(v.gap)))} di bawah modal rata-rata pembeli utama (${f.price(n(v.averagePrice))})`,
     LOW_LIQUIDITY: (v, f) =>
       `Likuiditas rendah: rata-rata transaksi ${f.rupiah(n(v.avgValue))} per hari (minimal ${f.rupiah(n(v.minValue))})`,
     NEAR_LIMIT_UP: (v, f) =>

@@ -29,6 +29,7 @@ export const en = {
     overview: "Overview",
     stocks: "Stocks",
     ihsg: "IHSG",
+    radar: "Broker Radar",
   },
   chartControls: {
     interval: "Candle size",
@@ -50,6 +51,50 @@ export const en = {
     budgetUsed: "Today's live-price limit is used up; prices below are delayed.",
     unavailable: "Live price unavailable right now; prices below are delayed.",
     source: "Real-time from IDX running trade via IDX Edge; refreshes every minute while this page is open.",
+  },
+  radar: {
+    title: "Broker Radar",
+    intro:
+      "Tracked stocks ranked by recent broker flow: persistence first, confirmed by price. It describes what happened, not what will happen, and the rules aren't backtested yet.",
+    window: "Look-back",
+    windowLabel: (days: number) => `${days} days`,
+    dataAsOf: (date: string) => `Broker data through ${date}`,
+    tracked: (n: number) => `${n} tracked stocks`,
+    addMore: "Add a stock with “Load broker data” on its page.",
+    rank: "#",
+    stock: "Stock",
+    score: "Score",
+    status: "Flow",
+    streak: "Streak",
+    streakUp: (days: number) => `▲ ${days}d buying`,
+    streakDown: (days: number) => `▼ ${days}d selling`,
+    streakNone: "—",
+    leadBroker: "Lead broker",
+    leadBrokerValue: (code: string, days: number) => `${code} · ${days}d`,
+    concentration: "Top-5 conc.",
+    foreign: "Foreign",
+    costGap: "vs buyers' cost",
+    change5d: "5D",
+    why: "Why",
+    reasonsCount: (n: number) => `${n} reasons`,
+    empty: "No tracked stocks have broker data yet.",
+    filteredTitle: "Filtered out",
+    filteredHint: "Strong flow, but these are hard to trade sensibly right now.",
+    screenerTitle: "IDX Edge screener picks — measured",
+    screenerIntro:
+      "Daily market-wide picks from IDX Edge's screener. Their win rates are the provider's claims; the outcomes below are what prices actually did after each pick (close to close).",
+    claimedWinRate: (pct: string) => `Claimed win rate (average): ${pct}`,
+    afterDays: (days: number) => `After ${days} day${days === 1 ? "" : "s"}`,
+    picksMeasured: (n: number) => `${n} picks measured`,
+    hitRate: "Went up",
+    avgReturn: "Avg return",
+    vsIhsg: "vs IHSG",
+    notYet: "Not enough days yet",
+    pickDate: "Date",
+    bucket: "Group",
+    claimed: "Claimed WR",
+    entry: "Close",
+    noPicks: "No picks saved yet. They're saved every weekday at 19:15 WIB.",
   },
   dashboard: {
     openIhsg: "Open IHSG chart →",
@@ -241,6 +286,24 @@ export const en = {
     FOREIGN_NET_BUY_RECENT: (v, f) => `Foreign investors net bought ${f.rupiah(n(v.value))} over the last ${v.days} days`,
     FOREIGN_NET_SELL_RECENT: (v, f) =>
       `Foreign investors net sold ${f.rupiah(Math.abs(n(v.value)))} over the last ${v.days} days`,
+    RADAR_BROKER_DATA_BEHIND: (v) => `Broker data for this stock only runs to ${v.latestDay}; it's still loading.`,
+    RADAR_ACCUMULATION_STREAK: (v) => `Top-5 brokers net bought ${v.days} day${n(v.days) === 1 ? "" : "s"} in a row`,
+    RADAR_DISTRIBUTION_STREAK: (v) => `Top-5 brokers net sold ${v.days} day${n(v.days) === 1 ? "" : "s"} in a row`,
+    RADAR_CONCENTRATED_BUYING: (v, f) =>
+      `Buying concentrated in a few brokers: avg ${f.signedFraction(n(v.avgConcentration))} of volume over ${v.days} days`,
+    RADAR_CONCENTRATED_SELLING: (v, f) =>
+      `Selling concentrated in a few brokers: avg ${f.signedFraction(n(v.avgConcentration))} of volume over ${v.days} days`,
+    RADAR_FOREIGN_BUYING: (v, f) => `Foreign investors net bought ${f.rupiah(n(v.value))} over ${v.days} days`,
+    RADAR_FOREIGN_SELLING: (v, f) => `Foreign investors net sold ${f.rupiah(Math.abs(n(v.value)))} over ${v.days} days`,
+    RADAR_BROKER_STREAK: (v, f) =>
+      `${v.broker}${v.name ? ` (${v.name})` : ""} net bought ${v.days} days in a row, avg price ${f.price(n(v.averagePrice))}`,
+    RADAR_ABOVE_RISING_MA20: (v, f) => `Price above a rising 20-day average (${f.price(n(v.ma20))})`,
+    RADAR_NEAR_BUYERS_COST: (v, f) =>
+      `Price is ${f.fraction(n(v.gap))} above the top buyers' average cost (${f.price(n(v.averagePrice))}): not stretched`,
+    RADAR_FAR_ABOVE_BUYERS_COST: (v, f) =>
+      `Price is ${f.fraction(n(v.gap))} above the top buyers' average cost (${f.price(n(v.averagePrice))}): they may take profit`,
+    RADAR_BELOW_BUYERS_COST: (v, f) =>
+      `Price is ${f.fraction(Math.abs(n(v.gap)))} below the top buyers' average cost (${f.price(n(v.averagePrice))})`,
     LOW_LIQUIDITY: (v, f) =>
       `Low liquidity: averages ${f.rupiah(n(v.avgValue))} traded per day (minimum ${f.rupiah(n(v.minValue))})`,
     NEAR_LIMIT_UP: (v, f) => `Up ${f.signedFraction(n(v.change))} today, likely at the daily limit: hard to buy at the open`,
