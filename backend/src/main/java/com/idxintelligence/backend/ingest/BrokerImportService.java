@@ -58,16 +58,47 @@ public class BrokerImportService {
         log.info("Scheduled broker import: {}", importBatch());
     }
 
+    /** 00:30 WIB, right after the provider's daily quota resets: catches up stocks queued during the day. */
+    @Scheduled(cron = "${import.brokers.morning-cron:0 30 0 * * *}", zone = "Asia/Jakarta")
+    public void scheduledMorningImport() {
+        log.info("Morning broker import: {}", importBatch());
+    }
+
     public Result importBatch() {
-        return importFor(null, maxCallsPerRun);
+        return importFor(null, maxCallsPerRun, quotaReserve);
     }
 
-    /** Only {@code ticker}'s pending days, up to {@code maxCalls} requests (e.g. right after it starts being tracked). */
+    /**
+     * Only {@code ticker}'s pending days, up to {@code maxCalls} requests (e.g. right after it starts being
+     * tracked). It may use the quota down to {@link #maintenanceReserve()}: what tonight's update needs.
+     */
     public Result importStock(String ticker, int maxCalls) {
-        return importFor(ticker.toUpperCase(), Math.min(maxCalls, maxCallsPerRun));
+        return importFor(ticker.toUpperCase(), Math.min(maxCalls, maxCallsPerRun), maintenanceReserve());
     }
 
-    private Result importFor(String ticker, int maxCalls) {
+    /** Requests tonight's run needs to keep every tracked stock current (all investors + foreign), plus a margin. */
+    public int maintenanceReserve() {
+        return Math.min(quotaReserve, repository.countTracked() * 2 + 20);
+    }
+
+    /**
+     * Requests still available today for a first fetch, or null when unknown (no request yet today;
+     * the provider resets the quota at 00:00 WIB, so a reading from an earlier day doesn't count).
+     */
+    public Integer availableForFirstFetch() {
+        QuotaReading reading = lastQuota;
+        if (reading == null || !reading.day().equals(LocalDate.now(clock.withZone(YahooFinanceClient.JAKARTA)))) {
+            return null;
+        }
+        return Math.max(0, reading.remaining() - maintenanceReserve());
+    }
+
+    private record QuotaReading(LocalDate day, int remaining) {
+    }
+
+    private volatile QuotaReading lastQuota;
+
+    private Result importFor(String ticker, int maxCalls, int reserve) {
         if (!client.isConfigured()) {
             return Result.skipped("IDX_EDGE_API_KEY is not set");
         }
@@ -75,13 +106,13 @@ public class BrokerImportService {
             return Result.skipped("an import is already running");
         }
         try {
-            return runBatch(ticker, maxCalls);
+            return runBatch(ticker, maxCalls, reserve);
         } finally {
             running.set(false);
         }
     }
 
-    private Result runBatch(String ticker, int maxCalls) {
+    private Result runBatch(String ticker, int maxCalls, int reserve) {
         Instant started = clock.instant();
         long runId = runLog.startRun(SOURCE, started);
         LocalDate from = started.atZone(YahooFinanceClient.JAKARTA).toLocalDate().minusDays(backfillDays);
@@ -91,14 +122,17 @@ public class BrokerImportService {
         int failed = 0;
         int consecutiveFailures = 0;
         int rows = 0;
-        Integer remaining = null;
+        // Start from today's last known reading, so a spent quota doesn't cost a wasted request to discover.
+        QuotaReading known = lastQuota;
+        Integer remaining = known != null && known.day().equals(started.atZone(YahooFinanceClient.JAKARTA).toLocalDate())
+                ? known.remaining() : null;
         String stopReason = work.isEmpty() ? "nothing to fetch" : "batch finished";
         LocalDate newest = null;
         LocalDate oldest = null;
         Set<LocalDate> notPublished = new HashSet<>();
 
         for (BrokerImportRepository.PendingDay day : work) {
-            if (remaining != null && remaining <= quotaReserve) {
+            if (remaining != null && remaining <= reserve) {
                 stopReason = "kept " + remaining + " requests in reserve for today";
                 break;
             }
@@ -124,6 +158,9 @@ public class BrokerImportService {
                 continue;
             }
             remaining = result.remainingQuota();
+            if (remaining != null) {
+                lastQuota = new QuotaReading(LocalDate.now(clock.withZone(YahooFinanceClient.JAKARTA)), remaining);
+            }
 
             if (result.brokers().isEmpty()) {
                 if (day.volume() != null && day.volume() > 0) {

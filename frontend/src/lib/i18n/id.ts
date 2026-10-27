@@ -131,6 +131,7 @@ export const id: Dictionary = {
     loadBrokerHint: "Mengambil data sekitar sebulan terakhir dan memperbarui saham ini setiap hari. Dibatasi beberapa saham per hari.",
     tracking: {
       TRACKED: "Data broker sedang dimuat di latar belakang — muat ulang halaman ini dalam sekitar satu menit.",
+      QUEUED: "Batas data gratis hari ini sudah habis. Saham ini sekarang dipantau; data brokernya dimuat setelah tengah malam (00.00 WIB) selama backend berjalan.",
       ALREADY_TRACKED: "Saham ini sudah mendapat data broker; mungkin masih dimuat.",
       UNKNOWN_STOCK: "Saham ini tidak dapat dipantau.",
       TOTAL_LIMIT_REACHED: "Daftar pantauan sudah penuh (batas paket data gratis). Coba lagi nanti.",

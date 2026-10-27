@@ -211,6 +211,7 @@ export function parseInterval(value: string | string[] | undefined): Interval {
 
 export type TrackOutcome =
   | "TRACKED"
+  | "QUEUED"
   | "ALREADY_TRACKED"
   | "UNKNOWN_STOCK"
   | "TOTAL_LIMIT_REACHED"
@@ -223,7 +224,9 @@ export async function trackStock(ticker: string): Promise<TrackOutcome> {
   if (!response.ok) {
     throw new Error(`Track request failed: ${response.status}`);
   }
-  return (await response.json()).outcome;
+  const result: { outcome: TrackOutcome; loadingNow: boolean } = await response.json();
+  // Tracked, but today's free quota is spent: the data loads after the 00:00 WIB reset instead.
+  return result.outcome === "TRACKED" && !result.loadingNow ? "QUEUED" : result.outcome;
 }
 
 export async function getMarketOverview(): Promise<MarketOverview> {

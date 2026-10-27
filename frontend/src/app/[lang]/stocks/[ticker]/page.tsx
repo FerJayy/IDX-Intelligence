@@ -32,7 +32,7 @@ export default async function StockPage({ params, searchParams }: PageProps<"/[l
 }
 
 const TRACK_OUTCOMES: TrackOutcome[] = [
-  "TRACKED", "ALREADY_TRACKED", "UNKNOWN_STOCK", "TOTAL_LIMIT_REACHED", "DAILY_LIMIT_REACHED", "FAILED",
+  "TRACKED", "QUEUED", "ALREADY_TRACKED", "UNKNOWN_STOCK", "TOTAL_LIMIT_REACHED", "DAILY_LIMIT_REACHED", "FAILED",
 ];
 
 function parseTracking(value: string | string[] | undefined): TrackOutcome | undefined {

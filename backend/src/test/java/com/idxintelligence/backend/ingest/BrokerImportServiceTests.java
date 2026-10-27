@@ -113,6 +113,23 @@ class BrokerImportServiceTests extends EmbeddedPostgresTest {
     }
 
     @Test
+    void buttonFetchesMayUseTheReserveDownToTonightsNeedAndRememberTheQuota() {
+        BrokerImportService service = service(100);
+        int need = service.maintenanceReserve();
+        org.junit.jupiter.api.Assumptions.assumeTrue(need + 5 < 150, "needs a reserve below the 150 default");
+        // The provider reports a few requests more than tonight's update needs.
+        when(client.brokerSummary(any(), any(), any())).thenReturn(day(need + 5, List.of(row("YP", 1000, 1000))));
+
+        BrokerImportService.Result button = service.importStock("TLKM", 60);
+        assertThat(button.calls()).isEqualTo(4); // all of TLKM's days, despite being under 150
+        assertThat(service.availableForFirstFetch()).isEqualTo(5);
+
+        BrokerImportService.Result nightly = service.importBatch();
+        assertThat(nightly.calls()).isZero(); // known to be under 150: stops without wasting a request
+        assertThat(nightly.note()).contains("reserve");
+    }
+
+    @Test
     void secondRunDoesNotRefetch() {
         when(client.brokerSummary(any(), any(), any())).thenReturn(day(500, List.of(row("YP", 1000, 1000))));
         service(100).importBatch();

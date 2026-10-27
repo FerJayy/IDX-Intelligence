@@ -32,16 +32,27 @@ public class TrackingController {
         this.executor = executor;
     }
 
-    public record TrackResult(BrokerTrackingService.Outcome outcome) {
+    /** @param loadingNow false when today's free quota is spent: the data loads after 00:00 WIB instead */
+    public record TrackResult(BrokerTrackingService.Outcome outcome, boolean loadingNow) {
     }
+
+    /** At least a week of history must fit in today's quota for "loading now" to be honest. */
+    static final int MIN_REQUESTS_TO_START = 10;
 
     @PostMapping("/api/stocks/{ticker}/track")
     public TrackResult track(@PathVariable String ticker) {
         BrokerTrackingService.Outcome outcome = tracking.track(ticker, BrokerTrackingService.Reason.USER);
-        if (outcome == BrokerTrackingService.Outcome.TRACKED) {
+        if (outcome != BrokerTrackingService.Outcome.TRACKED) {
+            return new TrackResult(outcome, false);
+        }
+        Integer available = brokerImport.availableForFirstFetch();
+        boolean loadingNow = available == null || available >= MIN_REQUESTS_TO_START;
+        if (loadingNow) {
             executor.execute(() -> log.info("First broker fetch for {}: {}", ticker,
                     brokerImport.importStock(ticker, FIRST_FETCH_REQUESTS)));
+        } else {
+            log.info("Broker fetch for {} queued: only {} requests left today", ticker, available);
         }
-        return new TrackResult(outcome);
+        return new TrackResult(outcome, loadingNow);
     }
 }

@@ -56,6 +56,10 @@ public class BrokerImportRepository {
                 .list();
     }
 
+    public int countTracked() {
+        return jdbc.sql("SELECT count(*) FROM stock WHERE broker_tracked AND active").query(Integer.class).single();
+    }
+
     public int countPending(LocalDate from) {
         return countPending(from, null);
     }

@@ -135,6 +135,7 @@ export const en = {
     loadBrokerHint: "Fetches about the last month and keeps this stock updated daily. Limited to a few stocks per day.",
     tracking: {
       TRACKED: "Loading broker data in the background — reload this page in about a minute.",
+      QUEUED: "Today's free data limit is used up. This stock is now tracked; its broker data loads after midnight (00:00 WIB) while the backend is running.",
       ALREADY_TRACKED: "This stock already gets broker data; it may still be loading.",
       UNKNOWN_STOCK: "This stock can't be tracked.",
       TOTAL_LIMIT_REACHED: "The tracked list is full (free data plan limit). Try again after it's reviewed.",
