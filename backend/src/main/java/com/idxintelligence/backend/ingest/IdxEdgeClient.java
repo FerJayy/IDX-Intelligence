@@ -69,6 +69,43 @@ public class IdxEdgeClient {
         return new BrokerDay(brokers, parseRemaining(response.getHeaders().getFirst("x-ratelimit-remaining")));
     }
 
+    /** IDX Edge's market-wide screener result for the latest trading day. Costs one request. */
+    public Screener screener() {
+        Screener body = http.get()
+                .uri("/api/screener/latest")
+                .header("X-API-Key", apiKey)
+                .retrieve()
+                .onStatus(status -> status.value() == 429, (request, resp) -> {
+                    throw new QuotaExhaustedException();
+                })
+                .onStatus(HttpStatusCode::isError, (request, resp) -> {
+                    throw new IllegalStateException("IDX Edge returned HTTP " + resp.getStatusCode().value());
+                })
+                .body(Screener.class);
+        if (body == null) {
+            throw new IllegalStateException("IDX Edge returned an empty screener");
+        }
+        return body;
+    }
+
+    /** @param date the provider's heading, e.g. "📊 **SCREENER V5.2** — Senin, 26 Oktober 2026" */
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record Screener(@JsonProperty("date") String date, @JsonProperty("rows") List<ScreenerRow> rows) {
+    }
+
+    /** One pick. Win rate, potential and drawdown are the provider's own claims, in percent. */
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record ScreenerRow(
+            @JsonProperty("stock_code") String code,
+            @JsonProperty("stock_name") String name,
+            @JsonProperty("bucket") String bucket,
+            @JsonProperty("summary") String summary,
+            @JsonProperty("note") String note,
+            @JsonProperty("wr_event") BigDecimal winRate,
+            @JsonProperty("potential") BigDecimal potential,
+            @JsonProperty("drawdown") BigDecimal drawdown) {
+    }
+
     /** One page (max 50) of the full listing, largest market cap first. Costs one request. */
     public ListingPage listingPage(int page) {
         ResponseEntity<ListingPage> response = http.get()

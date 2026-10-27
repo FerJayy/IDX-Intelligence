@@ -29,6 +29,8 @@ public class BrokerImportRepository {
             JOIN stock s ON s.ticker = p.ticker AND s.broker_tracked AND s.active
             CROSS JOIN (VALUES ('ALL'), ('F')) AS f(flow)
             WHERE p.trade_date >= ?
+              AND (s.broker_backfill_from IS NULL OR p.trade_date >= s.broker_backfill_from)
+              AND (CAST(? AS VARCHAR) IS NULL OR p.ticker = ?)
               AND NOT EXISTS (SELECT 1 FROM broker_import_day d
                               WHERE d.ticker = p.ticker AND d.trade_date = p.trade_date AND d.flow = f.flow)
             """;
@@ -38,9 +40,14 @@ public class BrokerImportRepository {
      * and for each day "ALL" before "F", because foreign figures are added onto the ALL rows.
      */
     public List<PendingDay> pending(LocalDate from, int limit) {
+        return pending(from, null, limit);
+    }
+
+    /** @param ticker only this stock, or null for every tracked stock */
+    public List<PendingDay> pending(LocalDate from, String ticker, int limit) {
         return jdbc.sql("SELECT p.ticker, p.trade_date, f.flow, p.volume " + PENDING_FROM
                         + " ORDER BY p.trade_date DESC, f.flow, p.ticker LIMIT ?")
-                .params(Date.valueOf(from), limit)
+                .params(Date.valueOf(from), ticker, ticker, limit)
                 .query((rs, n) -> new PendingDay(
                         rs.getString("ticker"),
                         rs.getDate("trade_date").toLocalDate(),
@@ -50,7 +57,12 @@ public class BrokerImportRepository {
     }
 
     public int countPending(LocalDate from) {
-        return jdbc.sql("SELECT count(*) " + PENDING_FROM).param(Date.valueOf(from)).query(Integer.class).single();
+        return countPending(from, null);
+    }
+
+    public int countPending(LocalDate from, String ticker) {
+        return jdbc.sql("SELECT count(*) " + PENDING_FROM).params(Date.valueOf(from), ticker, ticker)
+                .query(Integer.class).single();
     }
 
     /** Stores the all-investor summary for one stock-day, keeping any foreign figures already stored. */

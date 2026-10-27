@@ -8,7 +8,9 @@ import {
   type Interval,
   type PriceRange,
   type StockDetail,
+  type TrackOutcome,
 } from "@/lib/api";
+import { loadBrokerData } from "@/lib/actions";
 import { changeColor } from "@/lib/format";
 import { getI18n } from "@/lib/i18n";
 import { BrokerActivity } from "./broker-activity";
@@ -16,7 +18,18 @@ import { ChartControls } from "./chart-controls";
 import { DemoBanner } from "./demo-banner";
 import { PriceChart } from "./price-chart";
 
-export async function StockOverview({ ticker, interval, range }: { ticker: string; interval: Interval; range?: string }) {
+export async function StockOverview({
+  ticker,
+  interval,
+  range,
+  tracking,
+}: {
+  ticker: string;
+  interval: Interval;
+  range?: string;
+  /** Outcome of a "Load broker data" click, from the redirect. */
+  tracking?: TrackOutcome;
+}) {
   const { locale, t, f } = await getI18n();
 
   // Broker data is daily: on 1D it follows the chart's range, otherwise it shows 3 months.
@@ -90,8 +103,23 @@ export async function StockOverview({ ticker, interval, range }: { ticker: strin
         <ChartNotes chart={chart} interval={interval} brokerTracked={!!brokers?.tracked} t={t} />
       </section>
 
+      {tracking && (
+        <p className="rounded-lg border border-info-line bg-info-bg px-4 py-2 text-sm text-info-fg">
+          {t.stock.tracking[tracking]}
+        </p>
+      )}
+
       {brokers && !brokers.tracked && !brokers.demo ? (
-        <p className="rounded-xl border border-line p-4 text-sm text-muted">{t.stock.brokerNotTracked}</p>
+        <form action={loadBrokerData} className="flex flex-wrap items-center gap-3 rounded-xl border border-line p-4">
+          <input type="hidden" name="ticker" value={quote.ticker} />
+          <input type="hidden" name="lang" value={locale} />
+          <p className="min-w-64 flex-1 text-sm text-muted">
+            {t.stock.brokerNotTracked} {t.stock.loadBrokerHint}
+          </p>
+          <button type="submit" className="rounded-md bg-chip px-4 py-2 text-sm font-semibold hover:bg-line">
+            {t.stock.loadBroker}
+          </button>
+        </form>
       ) : brokers ? (
         <BrokerActivity summary={brokers} />
       ) : (

@@ -127,6 +127,16 @@ export const id: Dictionary = {
     brokerUnavailable: "Aktivitas broker sedang tidak tersedia.",
     brokerNotTracked:
       "Data broker tidak diimpor untuk saham ini. Agar tetap dalam paket data gratis, ringkasan broker hanya mencakup daftar saham pilihan; harga mencakup semua saham.",
+    loadBroker: "Muat data broker",
+    loadBrokerHint: "Mengambil data sekitar sebulan terakhir dan memperbarui saham ini setiap hari. Dibatasi beberapa saham per hari.",
+    tracking: {
+      TRACKED: "Data broker sedang dimuat di latar belakang — muat ulang halaman ini dalam sekitar satu menit.",
+      ALREADY_TRACKED: "Saham ini sudah mendapat data broker; mungkin masih dimuat.",
+      UNKNOWN_STOCK: "Saham ini tidak dapat dipantau.",
+      TOTAL_LIMIT_REACHED: "Daftar pantauan sudah penuh (batas paket data gratis). Coba lagi nanti.",
+      DAILY_LIMIT_REACHED: "Batas saham baru untuk hari ini sudah tercapai. Coba lagi besok.",
+      FAILED: "Gagal mulai memuat data broker. Pastikan backend berjalan.",
+    },
   },
   chart: {
     noHistory: "Riwayat harga tidak tersedia.",

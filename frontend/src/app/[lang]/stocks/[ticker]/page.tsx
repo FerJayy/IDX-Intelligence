@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { StockOverview } from "@/components/stock-overview";
-import { parseInterval } from "@/lib/api";
+import { parseInterval, type TrackOutcome } from "@/lib/api";
 import { getI18n } from "@/lib/i18n";
 
 export default async function StockPage({ params, searchParams }: PageProps<"/[lang]/stocks/[ticker]">) {
@@ -13,6 +13,7 @@ export default async function StockPage({ params, searchParams }: PageProps<"/[l
       ticker={ticker.toUpperCase()}
       interval={parseInterval(query.tf)}
       range={typeof query.range === "string" ? query.range.toUpperCase() : undefined}
+      tracking={parseTracking(query.tracking)}
     />
   ));
 
@@ -28,4 +29,12 @@ export default async function StockPage({ params, searchParams }: PageProps<"/[l
       </div>
     </main>
   );
+}
+
+const TRACK_OUTCOMES: TrackOutcome[] = [
+  "TRACKED", "ALREADY_TRACKED", "UNKNOWN_STOCK", "TOTAL_LIMIT_REACHED", "DAILY_LIMIT_REACHED", "FAILED",
+];
+
+function parseTracking(value: string | string[] | undefined): TrackOutcome | undefined {
+  return TRACK_OUTCOMES.find((o) => o === value);
 }

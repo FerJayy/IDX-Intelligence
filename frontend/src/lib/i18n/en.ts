@@ -131,6 +131,16 @@ export const en = {
     brokerUnavailable: "Broker activity is unavailable right now.",
     brokerNotTracked:
       "Broker data isn't imported for this stock. To stay within the free data plan, broker summaries cover a tracked list of stocks; prices cover all of them.",
+    loadBroker: "Load broker data",
+    loadBrokerHint: "Fetches about the last month and keeps this stock updated daily. Limited to a few stocks per day.",
+    tracking: {
+      TRACKED: "Loading broker data in the background — reload this page in about a minute.",
+      ALREADY_TRACKED: "This stock already gets broker data; it may still be loading.",
+      UNKNOWN_STOCK: "This stock can't be tracked.",
+      TOTAL_LIMIT_REACHED: "The tracked list is full (free data plan limit). Try again after it's reviewed.",
+      DAILY_LIMIT_REACHED: "Today's limit for new stocks is reached. Try again tomorrow.",
+      FAILED: "Couldn't start loading broker data. Check that the backend is running.",
+    },
   },
   chart: {
     noHistory: "No price history available.",

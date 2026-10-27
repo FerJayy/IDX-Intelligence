@@ -59,6 +59,15 @@ public class BrokerImportService {
     }
 
     public Result importBatch() {
+        return importFor(null, maxCallsPerRun);
+    }
+
+    /** Only {@code ticker}'s pending days, up to {@code maxCalls} requests (e.g. right after it starts being tracked). */
+    public Result importStock(String ticker, int maxCalls) {
+        return importFor(ticker.toUpperCase(), Math.min(maxCalls, maxCallsPerRun));
+    }
+
+    private Result importFor(String ticker, int maxCalls) {
         if (!client.isConfigured()) {
             return Result.skipped("IDX_EDGE_API_KEY is not set");
         }
@@ -66,17 +75,17 @@ public class BrokerImportService {
             return Result.skipped("an import is already running");
         }
         try {
-            return runBatch();
+            return runBatch(ticker, maxCalls);
         } finally {
             running.set(false);
         }
     }
 
-    private Result runBatch() {
+    private Result runBatch(String ticker, int maxCalls) {
         Instant started = clock.instant();
         long runId = runLog.startRun(SOURCE, started);
         LocalDate from = started.atZone(YahooFinanceClient.JAKARTA).toLocalDate().minusDays(backfillDays);
-        List<BrokerImportRepository.PendingDay> work = repository.pending(from, maxCallsPerRun);
+        List<BrokerImportRepository.PendingDay> work = repository.pending(from, ticker, maxCalls);
 
         int calls = 0;
         int failed = 0;
@@ -138,7 +147,7 @@ public class BrokerImportService {
             pause();
         }
 
-        int stillPending = repository.countPending(from);
+        int stillPending = repository.countPending(from, ticker);
         String message = "%d calls, %d failed; %s; %d summaries still pending".formatted(calls, failed, stopReason, stillPending);
         runLog.finishRun(runId, clock.instant(), calls - failed, failed, rows, message);
         return new Result(false, stopReason, calls, failed, rows, remaining, stillPending, newest, oldest);

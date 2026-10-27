@@ -50,6 +50,7 @@ class BrokerImportServiceTests extends EmbeddedPostgresTest {
         jdbc.sql("DELETE FROM broker_import_day").update();
         jdbc.sql("DELETE FROM daily_price").update();
         jdbc.sql("DELETE FROM import_run").update();
+        jdbc.sql("UPDATE stock SET broker_backfill_from = NULL").update();
         // Trading days come from daily_price: BBCA and TLKM traded Thursday and Friday (1,000 shares each).
         for (String ticker : List.of("BBCA", "TLKM")) {
             for (LocalDate day : List.of(THU, FRI)) {
@@ -86,6 +87,29 @@ class BrokerImportServiceTests extends EmbeddedPostgresTest {
         assertThat(foreignBuy("BBCA", FRI, "AK")).isEqualTo(100L);
         assertThat(foreignBuy("BBCA", FRI, "YP")).isEqualTo(0L);
         assertThat(jdbc.sql("SELECT name FROM broker WHERE code = 'YP'").query(String.class).single()).isEqualTo("Broker YP");
+    }
+
+    @Test
+    void newlyTrackedStocksOnlyFetchTheirShortHistoryWindow() {
+        // TLKM was tracked recently: its window starts Friday, so Thursday isn't fetched.
+        jdbc.sql("UPDATE stock SET broker_backfill_from = ? WHERE ticker = 'TLKM'").param(java.sql.Date.valueOf(FRI)).update();
+        when(client.brokerSummary(any(), any(), any())).thenReturn(day(500, List.of(row("YP", 1000, 1000))));
+
+        BrokerImportService.Result result = service(100).importBatch();
+
+        assertThat(result.calls()).isEqualTo(6); // BBCA 2 days x 2 flows + TLKM 1 day x 2 flows
+        verify(client, never()).brokerSummary(eq("TLKM"), eq(THU), any());
+        jdbc.sql("UPDATE stock SET broker_backfill_from = NULL").update();
+    }
+
+    @Test
+    void singleStockRunOnlyFetchesThatStock() {
+        when(client.brokerSummary(any(), any(), any())).thenReturn(day(500, List.of(row("YP", 1000, 1000))));
+
+        BrokerImportService.Result result = service(100).importStock("tlkm", 60);
+
+        assertThat(result.calls()).isEqualTo(4);
+        verify(client, never()).brokerSummary(eq("BBCA"), any(), any());
     }
 
     @Test

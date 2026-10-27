@@ -209,6 +209,23 @@ export function parseInterval(value: string | string[] | undefined): Interval {
   return typeof value === "string" && (INTERVALS as readonly string[]).includes(value) ? (value as Interval) : "1d";
 }
 
+export type TrackOutcome =
+  | "TRACKED"
+  | "ALREADY_TRACKED"
+  | "UNKNOWN_STOCK"
+  | "TOTAL_LIMIT_REACHED"
+  | "DAILY_LIMIT_REACHED"
+  | "FAILED";
+
+/** Starts broker tracking for a stock (capped by the backend); its first month is fetched in the background. */
+export async function trackStock(ticker: string): Promise<TrackOutcome> {
+  const response = await fetch(`${API_BASE_URL}/api/stocks/${encodeURIComponent(ticker)}/track`, { method: "POST" });
+  if (!response.ok) {
+    throw new Error(`Track request failed: ${response.status}`);
+  }
+  return (await response.json()).outcome;
+}
+
 export async function getMarketOverview(): Promise<MarketOverview> {
   const response = await fetch(`${API_BASE_URL}/api/market/overview`);
   if (!response.ok) {

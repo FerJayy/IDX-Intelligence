@@ -11,14 +11,23 @@ public class AdminImportController {
     private final PriceImportService priceImport;
     private final BrokerImportService brokerImport;
     private final StockListingService stockListing;
+    private final ScreenerService screener;
     private final AdminAuth adminAuth;
 
     public AdminImportController(PriceImportService priceImport, BrokerImportService brokerImport,
-                                 StockListingService stockListing, AdminAuth adminAuth) {
+                                 StockListingService stockListing, ScreenerService screener, AdminAuth adminAuth) {
         this.priceImport = priceImport;
         this.brokerImport = brokerImport;
         this.stockListing = stockListing;
+        this.screener = screener;
         this.adminAuth = adminAuth;
+    }
+
+    @PostMapping("/api/admin/import/screener")
+    public ScreenerService.Result importScreener(
+            @RequestHeader(value = "X-Admin-Token", required = false) String token) {
+        adminAuth.require(token);
+        return screener.importLatest();
     }
 
     @PostMapping("/api/admin/import/stocks")
