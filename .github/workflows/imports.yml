@@ -1,6 +1,14 @@
-# Runs the data imports on the hosted backend. The free Render instance sleeps when idle,
-# so it can't run its own schedule; each call here wakes it and keeps it busy until the import ends.
-# Needs repository secrets BACKEND_URL (e.g. https://idx-intelligence-api.onrender.com) and ADMIN_TOKEN.
+# Runs the data imports every day without the developer's PC.
+#
+# Two modes:
+# - No BACKEND_URL secret (now): the runner builds the backend, starts it next to itself against
+#   Neon, triggers the import on localhost and shuts it down. Needs secrets DB_URL, DB_USERNAME,
+#   DB_PASSWORD and IDX_EDGE_API_KEY.
+# - BACKEND_URL set (once the backend is hosted): wakes the hosted backend and calls its admin
+#   endpoint instead. Needs ADMIN_TOKEN too.
+#
+# The repository is public, so its Actions logs are public: the backend's own log is never
+# printed (it names the database host); only the import result is.
 # GitHub cron is UTC (WIB - 7 h) and often starts a few minutes late.
 name: Data imports
 
@@ -23,10 +31,15 @@ concurrency:
   group: imports
   cancel-in-progress: false
 
+permissions:
+  contents: read
+
 jobs:
   import:
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 150
+    env:
+      BACKEND_URL: ${{ secrets.BACKEND_URL }}
     steps:
       - name: Pick the import
         id: pick
@@ -44,21 +57,72 @@ jobs:
           echo "job=$job" >> "$GITHUB_OUTPUT"
           echo "Running: $job"
 
-      - name: Wake the backend
+      # --- Mode 1: run the backend inside this job ---
+      - uses: actions/checkout@v4
+        if: env.BACKEND_URL == ''
+
+      - uses: actions/setup-java@v4
+        if: env.BACKEND_URL == ''
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+
+      - name: Build the backend
+        if: env.BACKEND_URL == ''
+        working-directory: backend
+        run: ./mvnw -B -q package -DskipTests && cp target/backend-*.jar app.jar
+
+      - name: Start the backend
+        if: env.BACKEND_URL == ''
+        working-directory: backend
         env:
-          BACKEND_URL: ${{ secrets.BACKEND_URL }}
+          DB_URL: ${{ secrets.DB_URL }}
+          DB_USERNAME: ${{ secrets.DB_USERNAME }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          IDX_EDGE_API_KEY: ${{ secrets.IDX_EDGE_API_KEY }}
+          IMPORT_PRICES_CRON: "-"
+          IMPORT_BROKERS_CRON: "-"
+          IMPORT_BROKERS_MORNING_CRON: "-"
+          IMPORT_STOCKS_CRON: "-"
+          IMPORT_SCREENER_CRON: "-"
+        run: |
+          # A throw-away admin token that lives only for this run.
+          token=$(openssl rand -hex 24)
+          echo "::add-mask::$token"
+          echo "RUN_ADMIN_TOKEN=$token" >> "$GITHUB_ENV"
+          ADMIN_TOKEN="$token" nohup java -jar app.jar > backend.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -fsS --max-time 5 http://localhost:8080/api/health > /dev/null; then echo "Backend is up"; exit 0; fi
+            sleep 3
+          done
+          echo "Backend did not start. Errors (database host hidden):"
+          grep -E "ERROR|Caused by" backend.log | sed -E 's/[A-Za-z0-9.-]+\.neon\.tech/***/g' | head -20
+          exit 1
+
+      - name: Run the import
+        if: env.BACKEND_URL == ''
+        env:
+          JOB: ${{ steps.pick.outputs.job }}
+        run: |
+          curl -fsS --max-time 8000 -X POST -H "X-Admin-Token: $RUN_ADMIN_TOKEN" "http://localhost:8080/api/admin/import/$JOB"
+          echo
+
+      # --- Mode 2: call the hosted backend ---
+      - name: Wake the hosted backend
+        if: env.BACKEND_URL != ''
         run: |
           for i in $(seq 1 20); do
-            if curl -fsS --max-time 30 "$BACKEND_URL/api/health"; then echo; exit 0; fi
+            if curl -fsS --max-time 30 "$BACKEND_URL/api/health" > /dev/null; then echo "Backend is up"; exit 0; fi
             echo "Not up yet ($i), waiting..."; sleep 15
           done
           echo "Backend did not wake up"; exit 1
 
-      - name: Run the import
+      - name: Run the import on the hosted backend
+        if: env.BACKEND_URL != ''
         env:
-          BACKEND_URL: ${{ secrets.BACKEND_URL }}
           ADMIN_TOKEN: ${{ secrets.ADMIN_TOKEN }}
           JOB: ${{ steps.pick.outputs.job }}
         run: |
-          curl -fsS --max-time 6000 -X POST -H "X-Admin-Token: $ADMIN_TOKEN" "$BACKEND_URL/api/admin/import/$JOB"
+          curl -fsS --max-time 8000 -X POST -H "X-Admin-Token: $ADMIN_TOKEN" "$BACKEND_URL/api/admin/import/$JOB"
           echo
