@@ -402,6 +402,36 @@ export async function getMarketOverview(): Promise<MarketOverview> {
   return response.json();
 }
 
+// Mirrors InsiderService in backend/.../ingest.
+export type InsiderTransaction = {
+  date: string;
+  name: string;
+  action: string; // "buy", "sell", or whatever the source reports
+  nationality: string | null;
+  sharesBefore: number | null;
+  sharesAfter: number | null;
+  shareChange: number | null; // signed shares
+  percentBefore: number | null; // percent units (1.5 = 1,5%)
+  percentAfter: number | null;
+  price: number | null;
+};
+
+export type Insiders = {
+  ticker: string;
+  source: string;
+  fetchedAt: string | null; // null = never fetched
+  total: number | null;
+  transactions: InsiderTransaction[];
+};
+
+export async function getInsiders(ticker: string): Promise<Insiders> {
+  const response = await fetch(`${API_BASE_URL}/api/stocks/${encodeURIComponent(ticker)}/insiders`);
+  if (!response.ok) {
+    throw new Error(`Insider request failed: ${response.status}`);
+  }
+  return response.json();
+}
+
 /** Returns null when the backend does not know the ticker. */
 export async function getStock(ticker: string): Promise<StockDetail | null> {
   const response = await fetch(`${API_BASE_URL}/api/stocks/${encodeURIComponent(ticker)}`);

@@ -17,6 +17,7 @@ export function makeFormat(locale: Locale) {
   const decimal = new Intl.NumberFormat(tag, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const oneDecimal = new Intl.NumberFormat(tag, { minimumFractionDigits: 1, maximumFractionDigits: 1 });
   const compact = new Intl.NumberFormat(tag, { notation: "compact", maximumFractionDigits: 1 });
+  const holding = new Intl.NumberFormat(tag, { maximumSignificantDigits: 3 });
   const dateTime = new Intl.DateTimeFormat(tag, { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Jakarta" });
   const tradingDay = new Intl.DateTimeFormat(tag, { dateStyle: "medium", timeZone: "UTC" });
   const tradingDayLong = new Intl.DateTimeFormat(tag, { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" });
@@ -43,6 +44,8 @@ export function makeFormat(locale: Locale) {
     signedFraction: (value: number | null | undefined) =>
       value == null ? MISSING : `${sign(value)}${oneDecimal.format(value * 100)}%`,
     compact: (value: number | null | undefined) => (value == null ? MISSING : compact.format(value)),
+    /** Ownership already in percent units, small values kept readable: 0.0013 -> "0,0013%". */
+    holding: (value: number | null | undefined) => (value == null ? MISSING : `${holding.format(value)}%`),
     rupiah: (value: number | null | undefined) => (value == null ? MISSING : `Rp${compact.format(value)}`),
     signedRupiah: (value: number | null | undefined) => {
       if (value == null) return MISSING;

@@ -112,6 +112,46 @@ public class IdxEdgeClient {
             @JsonAlias("no_trade_today") Boolean noTradeToday) {
     }
 
+    /** The latest insider disclosures for one stock (newest first, one page of 10). Costs one request. */
+    public InsiderPage insiders(String ticker) {
+        InsiderPage body = http.get()
+                .uri("/api/insiders/{code}", ticker)
+                .header("X-API-Key", apiKey)
+                .retrieve()
+                .onStatus(status -> status.value() == 429, (request, resp) -> {
+                    throw new QuotaExhaustedException();
+                })
+                .onStatus(HttpStatusCode::isError, (request, resp) -> {
+                    throw new IllegalStateException("IDX Edge returned HTTP " + resp.getStatusCode().value());
+                })
+                .body(InsiderPage.class);
+        if (body == null) {
+            throw new IllegalStateException("IDX Edge returned an empty insider list for " + ticker);
+        }
+        return body;
+    }
+
+    /** @param total all disclosures the source has for the stock (only the first page is fetched) */
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record InsiderPage(@JsonAlias("stock_code") String code, @JsonAlias("total") Integer total,
+                              @JsonAlias("items") List<InsiderItem> items) {
+    }
+
+    /** Numbers come as display strings, e.g. "1,915,000", "+0.0008" (percent), "2,700". */
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record InsiderItem(
+            @JsonAlias("name") String name,
+            @JsonAlias("date") String date,
+            @JsonAlias("action_type") String action,
+            @JsonAlias("nationality") String nationality,
+            @JsonAlias("previous_value") String sharesBefore,
+            @JsonAlias("previous_percentage") String percentBefore,
+            @JsonAlias("current_value") String sharesAfter,
+            @JsonAlias("current_percentage") String percentAfter,
+            @JsonAlias("changes_value") String sharesChange,
+            @JsonAlias("price_formatted") String price) {
+    }
+
     /** IDX Edge's market-wide screener result for the latest trading day. Costs one request. */
     public Screener screener() {
         Screener body = http.get()

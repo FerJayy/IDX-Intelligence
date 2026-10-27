@@ -1,4 +1,5 @@
 import { notFound, unstable_rethrow } from "next/navigation";
+import { Suspense } from "react";
 import {
   getBrokerSummary,
   getStock,
@@ -13,14 +14,15 @@ import {
 import { loadBrokerData } from "@/lib/actions";
 import { changeColor } from "@/lib/format";
 import { getI18n } from "@/lib/i18n";
+import { readWatchlist } from "@/lib/watchlist";
 import { BrokerActivity } from "./broker-activity";
 import { ChartControls } from "./chart-controls";
 import { DemoBanner } from "./demo-banner";
 import { HscBadge } from "./hsc-badge";
+import { InsiderBox } from "./insider-box";
 import { LivePrice } from "./live-price";
 import { PriceChart } from "./price-chart";
 import { WatchButton } from "./watch-button";
-import { readWatchlist } from "@/lib/watchlist";
 
 export async function StockOverview({
   ticker,
@@ -140,6 +142,12 @@ export async function StockOverview({
         <BrokerActivity summary={brokers} />
       ) : (
         <p className="rounded-xl border border-line p-4 text-sm text-faint">{t.stock.brokerUnavailable}</p>
+      )}
+
+      {!stock.demo && (
+        <Suspense fallback={<p className="rounded-xl border border-line p-4 text-sm text-faint">{t.common.loadingMarket}</p>}>
+          <InsiderBox ticker={quote.ticker} />
+        </Suspense>
       )}
 
       <details className="rounded-xl border border-line bg-card p-4">
