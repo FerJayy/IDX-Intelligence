@@ -331,6 +331,38 @@ export type Radar = {
   screener: { picks: PickOutcome[]; summary: OutcomeSummary[]; averageClaimedWinRate: number | null };
 };
 
+// Mirrors RadarTrackRecordService in backend/.../signal.
+export type TrackGroup = "TOP_PICKS" | "HIGH_SCORE" | "ACCUMULATION" | "NEUTRAL" | "DISTRIBUTION" | "ALL";
+
+export type TrackHorizon = {
+  days: number;
+  trades: number;
+  averageReturn: number | null; // fraction, after costs
+  averageExcess: number | null; // fraction, minus IHSG over the same days
+  hitRate: number | null; // share of trades that made money after costs
+};
+
+export type RadarTrackRecord = {
+  generatedAt: string;
+  windowDays: RadarWindow;
+  from: string | null;
+  to: string | null;
+  signalDays: number;
+  stocks: number;
+  roundTripCost: number;
+  topPicks: number;
+  highScore: number;
+  groups: { group: TrackGroup; signalDays: number; horizons: TrackHorizon[] }[];
+};
+
+export async function getRadarTrackRecord(window: RadarWindow): Promise<RadarTrackRecord> {
+  const response = await fetch(`${API_BASE_URL}/api/watchlist/radar/track-record?window=${window}`);
+  if (!response.ok) {
+    throw new Error(`Radar track record request failed: ${response.status}`);
+  }
+  return response.json();
+}
+
 export async function getRadar(window: RadarWindow): Promise<Radar> {
   const response = await fetch(`${API_BASE_URL}/api/watchlist/radar?window=${window}`);
   if (!response.ok) {

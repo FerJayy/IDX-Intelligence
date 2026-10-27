@@ -59,7 +59,7 @@ export const en = {
   radar: {
     title: "Broker Radar",
     intro:
-      "Tracked stocks ranked by recent broker flow: persistence first, confirmed by price. It describes what happened, not what will happen, and the rules aren't backtested yet.",
+      "Tracked stocks ranked by recent broker flow: persistence first, confirmed by price. It describes what happened, not what will happen; its measured record so far is under “Track record”.",
     window: "Look-back",
     windowLabel: (days: number) => `${days} days`,
     dataAsOf: (date: string) => `Broker data through ${date}`,
@@ -99,14 +99,51 @@ export const en = {
     claimed: "Claimed WR",
     entry: "Close",
     noPicks: "No picks saved yet. They're saved every weekday at 19:15 WIB.",
-    views: { cards: "Ranking", streaks: "Streaks", table: "Table" },
+    views: { cards: "Ranking", streaks: "Streaks", table: "Table", record: "Track record" },
+    record: {
+      title: "How the Radar would have done",
+      intro: (cost: string) =>
+        `The Radar replayed on every past broker day, using only the data known that evening. Each "trade" buys at the next day's open and sells at the close 1, 3 or 5 trading days later, after ${cost} fees, and is compared with IHSG over the same days.`,
+      group: "Group",
+      groups: {
+        TOP_PICKS: (n: number) => `Top ${n} by score each day`,
+        HIGH_SCORE: (n: number) => `Score ${n} or more`,
+        ACCUMULATION: "Accumulation",
+        NEUTRAL: "Neutral",
+        DISTRIBUTION: "Distribution",
+        ALL: "All tracked stocks (baseline)",
+      },
+      after: (days: number) => `+${days} days`,
+      vsIhsg: "vs IHSG",
+      rose: (pct: string) => `${pct} made money`,
+      trades: (n: number) => `${n} trades`,
+      period: (from: string, to: string, days: number, stocks: number) =>
+        `${from} – ${to} · ${days} broker days · ${stocks} stocks`,
+      tooLittle: (days: number) =>
+        `Only ${days} broker days so far: far too few to tell luck from skill. Treat the Radar as unproven until there are several months.`,
+      summary: (top: string, all: string) =>
+        `So far, the top picks did ${top} vs IHSG over 5 days, against ${all} for all tracked stocks.`,
+      better: "That is better than the baseline — so far.",
+      worse: "That is worse than the baseline: the score has not helped so far.",
+      teaser: (top: string, days: number) => `Measured so far: top picks ${top} vs IHSG after 5 days (${days} days of history).`,
+      teaserLink: "See the track record",
+      howTitle: "How to read this",
+      how: [
+        "“vs IHSG” is the average result minus what IHSG did over the same days: above 0 means the group beat the market.",
+        "“made money” counts trades that were positive after fees.",
+        "The baseline (all tracked stocks) shows what you'd get without the Radar. A useful signal has to beat it, not just be positive.",
+        "Trades on the same day move together (one market mood), so the real sample size is the number of days, not trades.",
+      ],
+      unavailable: "The track record is unavailable right now.",
+      none: "Not enough broker history yet to replay the Radar.",
+    },
     help: "How to read this",
     helpItems: [
       { term: "Streak", text: "How many days in a row the 5 biggest buyers bought more than the 5 biggest sellers sold. Longer = steadier buying." },
       { term: "Lead broker", text: "The single broker that kept net buying the most days in a row, and its average buy price." },
       { term: "Foreign", text: "What foreign investors bought minus what they sold in this period." },
       { term: "vs buyers' cost", text: "Today's price compared with what the main buyers paid. Close to 0% means the price hasn't run away from them yet; far above can mean they're ready to take profit." },
-      { term: "Score", text: "Adds up the points above (see 'Why this score'). It ranks what has happened; it doesn't predict, and it isn't backtested yet." },
+      { term: "Score", text: "Adds up the points above (see 'Why this score'). It ranks what has happened; it doesn't predict. See “Track record” for how it has done so far." },
     ],
     whyScore: "Why this score",
     say: {

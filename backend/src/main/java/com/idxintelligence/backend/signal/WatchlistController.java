@@ -12,11 +12,14 @@ public class WatchlistController {
     private final WatchlistService watchlist;
     private final BacktestService backtest;
     private final RadarService radar;
+    private final RadarTrackRecordService radarTrackRecord;
 
-    public WatchlistController(WatchlistService watchlist, BacktestService backtest, RadarService radar) {
+    public WatchlistController(WatchlistService watchlist, BacktestService backtest, RadarService radar,
+                               RadarTrackRecordService radarTrackRecord) {
         this.watchlist = watchlist;
         this.backtest = backtest;
         this.radar = radar;
+        this.radarTrackRecord = radarTrackRecord;
     }
 
     @GetMapping
@@ -28,6 +31,12 @@ public class WatchlistController {
     @GetMapping("/radar")
     public RadarService.Radar radar(@RequestParam(defaultValue = "10") int window) {
         return radar.radar(window);
+    }
+
+    /** The Radar replayed on past broker days with only the data known then, and what happened next. */
+    @GetMapping("/radar/track-record")
+    public RadarTrackRecordService.TrackRecord radarTrackRecord(@RequestParam(defaultValue = "10") int window) {
+        return radarTrackRecord.trackRecord(window);
     }
 
     @GetMapping("/backtest")

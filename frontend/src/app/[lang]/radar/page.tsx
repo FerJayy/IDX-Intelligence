@@ -3,10 +3,12 @@ import { unstable_rethrow } from "next/navigation";
 import { Suspense } from "react";
 import {
   getRadar,
+  getRadarTrackRecord,
   RADAR_WINDOWS,
   type BrokerStockStreak,
   type FlowStatus,
   type Radar,
+  type RadarTrackRecord,
   type RadarRow,
   type RadarWindow,
 } from "@/lib/api";
@@ -17,7 +19,7 @@ import type { Locale } from "@/lib/i18n/locales";
 import { describe } from "@/lib/i18n/reasons";
 
 // Status always shows an icon and a word, never colour alone.
-const VIEWS = ["cards", "streaks", "table"] as const;
+const VIEWS = ["cards", "streaks", "table", "record"] as const;
 type View = (typeof VIEWS)[number];
 
 const STATUS: Record<FlowStatus, { icon: string; className: string }> = {
@@ -111,7 +113,17 @@ async function RadarView({ window, view }: { window: RadarWindow; view: View }) 
         </p>
       </div>
 
-      {view === "streaks" ? (
+      {view === "cards" && (
+        <Suspense fallback={null}>
+          <TrackRecordTeaser window={radar.windowDays} locale={locale} />
+        </Suspense>
+      )}
+
+      {view === "record" ? (
+        <Suspense fallback={<p className="text-muted">{t.common.loadingMarket}</p>}>
+          <TrackRecordSection window={radar.windowDays} />
+        </Suspense>
+      ) : view === "streaks" ? (
         <StreakList streaks={radar.streaks} locale={locale} t={t} f={f} />
       ) : ranked.length === 0 ? (
         <p className="rounded-xl border border-line bg-card p-6 text-sm text-faint">{t.radar.empty}</p>
@@ -125,7 +137,7 @@ async function RadarView({ window, view }: { window: RadarWindow; view: View }) 
         </div>
       )}
 
-      {view !== "streaks" && filtered.length > 0 && (
+      {(view === "cards" || view === "table") && filtered.length > 0 && (
         <section>
           <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">{t.radar.filteredTitle}</h2>
           <p className="mt-1 text-xs text-faint">{t.radar.filteredHint}</p>
@@ -462,6 +474,117 @@ function ScreenerSection({ radar, locale, t, f }: { radar: Radar; locale: Locale
           </div>
         </>
       )}
+    </section>
+  );
+}
+
+// ---------- track record ----------
+
+async function loadTrackRecord(window: RadarWindow): Promise<RadarTrackRecord | null> {
+  try {
+    return await getRadarTrackRecord(window);
+  } catch (error) {
+    unstable_rethrow(error);
+    console.error(error);
+    return null;
+  }
+}
+
+function fiveDayExcess(record: RadarTrackRecord, group: RadarTrackRecord["groups"][number]["group"]) {
+  return record.groups.find((g) => g.group === group)?.horizons.find((h) => h.days === 5)?.averageExcess ?? null;
+}
+
+/** One line above the ranking, so the picks are never shown without their measured record. */
+async function TrackRecordTeaser({ window, locale }: { window: RadarWindow; locale: Locale }) {
+  const { t, f } = await getI18n();
+  const record = await loadTrackRecord(window);
+  const top = record && fiveDayExcess(record, "TOP_PICKS");
+  if (!record || top == null) return null;
+  return (
+    <p className="rounded-lg border border-info-line bg-info-bg px-4 py-2 text-sm text-info-fg">
+      {t.radar.record.teaser(f.signedFraction(top), record.signalDays)}{" "}
+      <Link href={`/${locale}/radar?window=${window}&view=record`} scroll={false} className="font-semibold underline">
+        {t.radar.record.teaserLink}
+      </Link>
+    </p>
+  );
+}
+
+/** Enough days to say anything at all; below this the page says plainly that it is unproven. */
+const MIN_SIGNAL_DAYS = 60;
+
+async function TrackRecordSection({ window }: { window: RadarWindow }) {
+  const { t, f } = await getI18n();
+  const record = await loadTrackRecord(window);
+  if (!record) {
+    return <div className="rounded-xl border border-danger-line bg-danger-bg p-6 text-danger-fg">{t.radar.record.unavailable}</div>;
+  }
+  if (record.signalDays === 0 || !record.from || !record.to) {
+    return <p className="rounded-xl border border-line bg-card p-6 text-sm text-faint">{t.radar.record.none}</p>;
+  }
+  const r = t.radar.record;
+  const top = fiveDayExcess(record, "TOP_PICKS");
+  const all = fiveDayExcess(record, "ALL");
+  const label = (group: RadarTrackRecord["groups"][number]["group"]) =>
+    group === "TOP_PICKS" ? r.groups.TOP_PICKS(record.topPicks) : group === "HIGH_SCORE" ? r.groups.HIGH_SCORE(record.highScore) : r.groups[group];
+
+  return (
+    <section className="space-y-4">
+      <div>
+        <h2 className="text-lg font-semibold">{r.title}</h2>
+        <p className="mt-1 max-w-3xl text-sm text-muted">{r.intro(f.fraction(record.roundTripCost))}</p>
+        <p className="mt-1 text-xs text-faint">
+          {r.period(f.tradingDate(record.from), f.tradingDate(record.to), record.signalDays, record.stocks)}
+        </p>
+      </div>
+
+      {record.signalDays < MIN_SIGNAL_DAYS && (
+        <p className="rounded-lg border border-warn-line bg-warn-bg px-4 py-2 text-sm text-warn-fg">{r.tooLittle(record.signalDays)}</p>
+      )}
+      {top != null && all != null && (
+        <p className="text-sm">
+          {r.summary(f.signedFraction(top), f.signedFraction(all))} {top > all ? r.better : r.worse}
+        </p>
+      )}
+
+      <div className="overflow-x-auto rounded-xl border border-line bg-card">
+        <table className="w-full text-sm tabular-nums">
+          <thead className="bg-card-strong text-left text-xs text-faint">
+            <tr>
+              <th className="px-3 py-2 font-medium">{r.group}</th>
+              {record.groups[0].horizons.map((h) => (
+                <th key={h.days} className="px-3 py-2 text-right font-medium">
+                  {r.after(h.days)}
+                  <span className="block font-normal">{r.vsIhsg}</span>
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {record.groups.map((g) => (
+              <tr key={g.group} className={`border-t border-line ${g.group === "ALL" ? "bg-card-strong" : ""}`}>
+                <td className="px-3 py-2 font-medium">{label(g.group)}</td>
+                {g.horizons.map((h) => (
+                  <td key={h.days} className="px-3 py-2 text-right align-top">
+                    <span className={`font-semibold ${changeColor(h.averageExcess)}`}>{f.signedFraction(h.averageExcess)}</span>
+                    <span className="block text-xs text-faint">{h.hitRate == null ? "—" : r.rose(f.fraction(h.hitRate))}</span>
+                    <span className="block text-xs text-faint">{r.trades(h.trades)}</span>
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <details className="rounded-xl border border-line bg-card p-4 text-sm">
+        <summary className="cursor-pointer font-semibold">{r.howTitle}</summary>
+        <ul className="mt-2 list-disc space-y-1 pl-5 text-muted">
+          {r.how.map((line) => (
+            <li key={line}>{line}</li>
+          ))}
+        </ul>
+      </details>
     </section>
   );
 }

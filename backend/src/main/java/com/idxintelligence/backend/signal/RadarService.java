@@ -152,7 +152,7 @@ public class RadarService {
                 streaks.stream().limit(MAX_STREAKS).toList(), screener());
     }
 
-    private Map<String, List<BrokerDailyActivity>> activity(LocalDate from) {
+    Map<String, List<BrokerDailyActivity>> activity(LocalDate from) {
         Map<String, List<BrokerDailyActivity>> byTicker = new HashMap<>();
         jdbc.sql("""
                 SELECT a.ticker, a.trade_date, a.broker_code, b.name, a.buy_volume, a.buy_value, a.sell_volume, a.sell_value,

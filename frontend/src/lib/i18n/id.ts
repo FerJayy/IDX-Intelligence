@@ -54,7 +54,7 @@ export const id: Dictionary = {
   radar: {
     title: "Radar Broker",
     intro:
-      "Saham yang dipantau, diurutkan menurut aliran broker terbaru: konsistensi lebih dulu, dikonfirmasi harga. Ini menggambarkan yang sudah terjadi, bukan yang akan terjadi, dan aturannya belum diuji historis.",
+      "Saham yang dipantau, diurutkan menurut aliran broker terbaru: konsistensi lebih dulu, dikonfirmasi harga. Ini menggambarkan yang sudah terjadi, bukan yang akan terjadi; hasil terukurnya sejauh ini ada di “Rekam jejak”.",
     window: "Rentang",
     windowLabel: (days: number) => `${days} hari`,
     dataAsOf: (date: string) => `Data broker hingga ${date}`,
@@ -94,14 +94,51 @@ export const id: Dictionary = {
     claimed: "Klaim WR",
     entry: "Penutupan",
     noPicks: "Belum ada pilihan tersimpan. Disimpan setiap hari bursa pukul 19.15 WIB.",
-    views: { cards: "Peringkat", streaks: "Beruntun", table: "Tabel" },
+    views: { cards: "Peringkat", streaks: "Beruntun", table: "Tabel", record: "Rekam jejak" },
+    record: {
+      title: "Seandainya Radar dipakai sebelumnya",
+      intro: (cost: string) =>
+        `Radar diputar ulang di setiap hari data broker sebelumnya, hanya dengan data yang sudah diketahui malam itu. Tiap "transaksi" membeli di harga pembukaan hari berikutnya dan menjual di harga penutupan 1, 3 atau 5 hari bursa kemudian, setelah biaya ${cost}, lalu dibandingkan dengan IHSG di hari yang sama.`,
+      group: "Kelompok",
+      groups: {
+        TOP_PICKS: (n: number) => `${n} skor teratas tiap hari`,
+        HIGH_SCORE: (n: number) => `Skor ${n} ke atas`,
+        ACCUMULATION: "Akumulasi",
+        NEUTRAL: "Netral",
+        DISTRIBUTION: "Distribusi",
+        ALL: "Semua saham dipantau (pembanding)",
+      },
+      after: (days: number) => `+${days} hari`,
+      vsIhsg: "vs IHSG",
+      rose: (pct: string) => `${pct} untung`,
+      trades: (n: number) => `${n} transaksi`,
+      period: (from: string, to: string, days: number, stocks: number) =>
+        `${from} – ${to} · ${days} hari data broker · ${stocks} saham`,
+      tooLittle: (days: number) =>
+        `Baru ${days} hari data broker: terlalu sedikit untuk membedakan untung-untungan dari keahlian. Anggap Radar belum terbukti sampai ada beberapa bulan data.`,
+      summary: (top: string, all: string) =>
+        `Sejauh ini, pilihan teratas menghasilkan ${top} vs IHSG dalam 5 hari, dibanding ${all} untuk semua saham dipantau.`,
+      better: "Itu lebih baik dari pembanding — sejauh ini.",
+      worse: "Itu lebih buruk dari pembanding: skor belum membantu sejauh ini.",
+      teaser: (top: string, days: number) => `Terukur sejauh ini: pilihan teratas ${top} vs IHSG setelah 5 hari (${days} hari data).`,
+      teaserLink: "Lihat rekam jejak",
+      howTitle: "Cara membaca",
+      how: [
+        "“vs IHSG” adalah hasil rata-rata dikurangi kinerja IHSG di hari yang sama: di atas 0 berarti kelompok itu mengalahkan pasar.",
+        "“untung” menghitung transaksi yang positif setelah biaya.",
+        "Pembanding (semua saham dipantau) menunjukkan hasil tanpa Radar. Sinyal yang berguna harus mengalahkannya, bukan sekadar positif.",
+        "Transaksi di hari yang sama bergerak bersama (satu suasana pasar), jadi ukuran sampel sebenarnya adalah jumlah hari, bukan transaksi.",
+      ],
+      unavailable: "Rekam jejak sedang tidak tersedia.",
+      none: "Riwayat data broker belum cukup untuk memutar ulang Radar.",
+    },
     help: "Cara membaca",
     helpItems: [
       { term: "Beruntun", text: "Berapa hari berturut-turut 5 pembeli terbesar membeli lebih banyak daripada yang dijual 5 penjual terbesar. Makin panjang = pembelian makin konsisten." },
       { term: "Broker utama", text: "Satu broker yang paling lama net beli berturut-turut, beserta harga rata-rata belinya." },
       { term: "Asing", text: "Pembelian investor asing dikurangi penjualannya pada periode ini." },
       { term: "vs modal pembeli", text: "Harga hari ini dibanding harga beli rata-rata pembeli utama. Dekat 0% berarti harga belum jauh dari modal mereka; jauh di atas bisa berarti mereka siap ambil untung." },
-      { term: "Skor", text: "Menjumlahkan poin di atas (lihat 'Alasan skor'). Ini mengurutkan yang sudah terjadi, bukan meramal, dan belum diuji historis." },
+      { term: "Skor", text: "Menjumlahkan poin di atas (lihat 'Alasan skor'). Ini mengurutkan yang sudah terjadi, bukan meramal; lihat “Rekam jejak” untuk hasilnya sejauh ini." },
     ],
     whyScore: "Alasan skor",
     say: {
