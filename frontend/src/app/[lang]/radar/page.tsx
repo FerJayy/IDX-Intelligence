@@ -278,10 +278,14 @@ function StreakList({ streaks, locale, t, f }: { streaks: BrokerStockStreak[]; l
       <ul className="divide-y divide-line rounded-xl border border-line bg-card">
         {streaks.map((s) => (
           <li key={`${s.brokerCode}-${s.ticker}`} className="flex flex-wrap items-baseline gap-x-4 gap-y-1 px-4 py-3 text-sm">
-            <span className="font-mono font-semibold" title={s.brokerName ?? undefined}>
+            <Link
+              href={`/${locale}/brokers/${s.brokerCode}`}
+              className="font-mono font-semibold hover:text-accent hover:underline"
+              title={s.brokerName ?? undefined}
+            >
               {s.days >= 5 ? "🔥 " : ""}
               {s.brokerCode}
-            </span>
+            </Link>
             <span aria-hidden className="text-faint">→</span>
             <Link href={`/${locale}/stocks/${s.ticker}`} className="font-mono font-semibold hover:text-accent hover:underline">
               {s.ticker}

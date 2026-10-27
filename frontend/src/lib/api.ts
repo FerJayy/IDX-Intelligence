@@ -339,6 +339,61 @@ export async function getRadar(window: RadarWindow): Promise<Radar> {
   return response.json();
 }
 
+export type BrokerListRow = { code: string; name: string; stocks: number; grossValue: number; netValue: number };
+
+export type BrokerStockPosition = {
+  ticker: string;
+  stockName: string;
+  hsc: boolean;
+  days: number; // broker days with activity in the window
+  buyVolume: number;
+  buyValue: number;
+  averageBuyPrice: number | null;
+  sellVolume: number;
+  sellValue: number;
+  averageSellPrice: number | null;
+  netVolume: number;
+  netValue: number;
+  foreignNetValue: number | null;
+  lastPrice: number | null;
+  gap: number | null; // last price vs average buy (net buyers) or sell (net sellers) price
+  buyStreak: number; // consecutive latest days this broker net bought the stock
+};
+
+export const BROKER_WINDOWS = [10, 20, 60] as const;
+export type BrokerWindow = (typeof BROKER_WINDOWS)[number];
+
+export type BrokerProfile = {
+  generatedAt: string;
+  code: string;
+  name: string;
+  windowDays: BrokerWindow;
+  from: string | null;
+  to: string | null;
+  grossValue: number;
+  netValue: number;
+  accumulating: BrokerStockPosition[];
+  distributing: BrokerStockPosition[];
+};
+
+export async function getBrokers(): Promise<BrokerListRow[]> {
+  const response = await fetch(`${API_BASE_URL}/api/brokers`);
+  if (!response.ok) {
+    throw new Error(`Brokers request failed: ${response.status}`);
+  }
+  return response.json();
+}
+
+/** Returns null for an unknown broker code. */
+export async function getBrokerProfile(code: string, window: BrokerWindow): Promise<BrokerProfile | null> {
+  const response = await fetch(`${API_BASE_URL}/api/brokers/${encodeURIComponent(code)}?window=${window}`);
+  if (response.status === 404) return null;
+  if (!response.ok) {
+    throw new Error(`Broker profile request failed: ${response.status}`);
+  }
+  return response.json();
+}
+
 export async function getMarketOverview(): Promise<MarketOverview> {
   const response = await fetch(`${API_BASE_URL}/api/market/overview`);
   if (!response.ok) {

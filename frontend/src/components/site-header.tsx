@@ -22,6 +22,9 @@ export async function SiteHeader() {
             <Link href={`/${locale}/radar`} className="hover:text-fg">
               {t.nav.radar}
             </Link>
+            <Link href={`/${locale}/brokers`} className="hover:text-fg">
+              {t.nav.brokers}
+            </Link>
             <Link href={`/${locale}/ihsg`} className="hover:text-fg">
               {t.nav.ihsg}
             </Link>

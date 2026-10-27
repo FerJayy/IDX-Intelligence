@@ -1,7 +1,9 @@
+import Link from "next/link";
 import type { BrokerPosition, BrokerSummary, FlowStatus } from "@/lib/api";
 import type { Format } from "@/lib/format";
 import { getI18n } from "@/lib/i18n";
 import type { Dictionary } from "@/lib/i18n/en";
+import type { Locale } from "@/lib/i18n/locales";
 import { describe } from "@/lib/i18n/reasons";
 
 // Status always shows an icon and a word, never colour alone.
@@ -12,7 +14,7 @@ const STATUS: Record<FlowStatus, { icon: string; className: string }> = {
 };
 
 export async function BrokerActivity({ summary }: { summary: BrokerSummary }) {
-  const { t, f } = await getI18n();
+  const { locale, t, f } = await getI18n();
   const status = STATUS[summary.assessment.status];
 
   return (
@@ -51,8 +53,8 @@ export async function BrokerActivity({ summary }: { summary: BrokerSummary }) {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <BrokerTable title={t.broker.topBuyers} positions={summary.topBuyers} side="buy" t={t} f={f} />
-        <BrokerTable title={t.broker.topSellers} positions={summary.topSellers} side="sell" t={t} f={f} />
+        <BrokerTable title={t.broker.topBuyers} positions={summary.topBuyers} side="buy" locale={locale} t={t} f={f} />
+        <BrokerTable title={t.broker.topSellers} positions={summary.topSellers} side="sell" locale={locale} t={t} f={f} />
       </div>
 
       <details className="rounded-xl border border-line bg-card p-4 text-sm">
@@ -74,12 +76,14 @@ function BrokerTable({
   title,
   positions,
   side,
+  locale,
   t,
   f,
 }: {
   title: string;
   positions: BrokerPosition[];
   side: "buy" | "sell";
+  locale: Locale;
   t: Dictionary;
   f: Format;
 }) {
@@ -102,7 +106,9 @@ function BrokerTable({
             {positions.map((p) => (
               <tr key={p.brokerCode} className="border-t border-line">
                 <td className="max-w-0 py-2 pr-2">
-                  <div className="font-mono font-semibold">{p.brokerCode}</div>
+                  <Link href={`/${locale}/brokers/${p.brokerCode}`} className="font-mono font-semibold hover:text-accent hover:underline">
+                    {p.brokerCode}
+                  </Link>
                   {p.brokerName && (
                     <div className="truncate text-xs text-faint" title={p.brokerName}>
                       {p.brokerName}
