@@ -15,6 +15,8 @@ export type StockQuote = {
   changePercent: number | null;
   volume: number | null;
   value: number | null; // estimated: last price x volume
+  marketCap: number | null; // IDR, from the weekly listing sync
+  brokerTracked: boolean; // broker summaries are imported for this stock
 };
 
 export type IndexSnapshot = {
@@ -102,6 +104,7 @@ export type FlowStatus = "ACCUMULATION" | "NEUTRAL" | "DISTRIBUTION";
 export type BrokerSummary = Omit<DataLabel, "dataDate"> & {
   ticker: string;
   range: PriceRange;
+  tracked: boolean; // false: broker data isn't imported for this stock at all
   from: string;
   to: string;
   tradingDays: number; // trading days in the range
@@ -112,6 +115,40 @@ export type BrokerSummary = Omit<DataLabel, "dataDate"> & {
   topSellers: BrokerPosition[];
   daily: DailyBrokerFlow[];
 };
+
+export const STOCK_SORTS = ["marketCap", "change", "value", "volume", "price", "ticker"] as const;
+export type StockSort = (typeof STOCK_SORTS)[number];
+
+export type StockList = DataLabel & {
+  total: number; // matching stocks across all pages
+  page: number;
+  size: number;
+  sectors: string[];
+  stocks: StockQuote[];
+};
+
+export type StockListQuery = {
+  search?: string;
+  sector?: string;
+  sort?: StockSort;
+  order?: "asc" | "desc";
+  page?: number;
+};
+
+export async function getStockList(query: StockListQuery): Promise<StockList> {
+  const params = new URLSearchParams();
+  if (query.search) params.set("search", query.search);
+  if (query.sector) params.set("sector", query.sector);
+  params.set("sort", query.sort ?? "marketCap");
+  params.set("order", query.order ?? "desc");
+  params.set("page", String(query.page ?? 1));
+  params.set("size", "50");
+  const response = await fetch(`${API_BASE_URL}/api/stocks?${params}`);
+  if (!response.ok) {
+    throw new Error(`Stock list request failed: ${response.status}`);
+  }
+  return response.json();
+}
 
 export async function getMarketOverview(): Promise<MarketOverview> {
   const response = await fetch(`${API_BASE_URL}/api/market/overview`);

@@ -72,6 +72,23 @@ class IdxEdgeClientTests {
     }
 
     @Test
+    void readsAListingPage() {
+        server.expect(requestTo("http://edge.test/api/market-cap?page=2&per_page=50"))
+                .andExpect(header("X-API-Key", "test-key"))
+                .andRespond(withSuccess("""
+                        {"date":"2026-10-26","total":963,"page":2,"per_page":50,"total_pages":20,
+                         "data":[{"code":"BBCA","name":"Bank Central Asia Tbk.","close":4940.0,
+                                  "listed_shares":122042299500.0,"market_cap":602888959530000.0,"turnover_ratio":0.0029}]}
+                        """, MediaType.APPLICATION_JSON));
+
+        IdxEdgeClient.ListingPage page = client.listingPage(2);
+
+        assertThat(page.totalPages()).isEqualTo(20);
+        assertThat(page.stocks().getFirst().code()).isEqualTo("BBCA");
+        assertThat(page.stocks().getFirst().listedShares()).isEqualByComparingTo("122042299500");
+    }
+
+    @Test
     void notConfiguredWithoutKey() {
         assertThat(new IdxEdgeClient(RestClient.builder(), "http://edge.test", " ").isConfigured()).isFalse();
     }

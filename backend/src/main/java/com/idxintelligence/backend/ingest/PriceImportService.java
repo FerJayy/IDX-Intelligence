@@ -41,8 +41,8 @@ public class PriceImportService {
     private final AtomicBoolean running = new AtomicBoolean(false);
 
     public PriceImportService(YahooFinanceClient yahoo, PriceRepository repository, Clock clock,
-                              @Value("${import.prices.backfill-years:10}") int backfillYears,
-                              @Value("${import.prices.pause-millis:500}") long pauseMillis) {
+                              @Value("${import.prices.backfill-years:5}") int backfillYears,
+                              @Value("${import.prices.pause-millis:250}") long pauseMillis) {
         this.yahoo = yahoo;
         this.repository = repository;
         this.clock = clock;
@@ -86,7 +86,7 @@ public class PriceImportService {
                 LocalDate from = latest == null
                         ? lastFinalDay.minusYears(backfillYears)
                         : latest.minusDays(OVERLAP_DAYS);
-                List<YahooFinanceClient.DailyBar> bars = yahoo.dailyBars(ticker, from, lastFinalDay).stream()
+                List<YahooFinanceClient.DailyBar> bars = withRetry(() -> yahoo.dailyBars(ticker, from, lastFinalDay)).stream()
                         .filter(bar -> !bar.date().isAfter(lastFinalDay))
                         // Yahoo sometimes emits zero-volume placeholder rows for holidays.
                         .filter(bar -> bar.volume() == null || bar.volume() > 0)
@@ -123,10 +123,29 @@ public class PriceImportService {
         return new ImportResult(false, tickers.size(), ok, failures.size(), rows, lastFinalDay, failures);
     }
 
+    // Yahoo occasionally answers 429 when asked for many stocks in a row: wait and try again.
+    private static final int RETRIES = 2;
+    private static final long RETRY_WAIT_MILLIS = 20_000;
+
+    private <T> T withRetry(java.util.function.Supplier<T> call) {
+        for (int attempt = 0; ; attempt++) {
+            try {
+                return call.get();
+            } catch (org.springframework.web.client.HttpClientErrorException.TooManyRequests e) {
+                if (attempt >= RETRIES || pauseMillis <= 0) throw e;
+                log.info("Yahoo rate limit; waiting {} s before retrying", RETRY_WAIT_MILLIS * (attempt + 1) / 1000);
+                sleep(RETRY_WAIT_MILLIS * (attempt + 1));
+            }
+        }
+    }
+
     private void pause() {
-        if (pauseMillis <= 0) return;
+        if (pauseMillis > 0) sleep(pauseMillis); // be gentle with Yahoo
+    }
+
+    private static void sleep(long millis) {
         try {
-            Thread.sleep(pauseMillis); // be gentle with Yahoo
+            Thread.sleep(millis);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }

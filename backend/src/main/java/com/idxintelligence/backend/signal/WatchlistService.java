@@ -42,7 +42,7 @@ public class WatchlistService {
     public Watchlist watchlist() {
         Map<String, SignalDataRepository.StockInfo> stocks = data.stocks();
         // ~90 calendar days covers the 25 trading days the features need, with room for holidays.
-        Map<String, List<Bar>> bars = data.adjustedBars(LocalDate.now(BacktestService.JAKARTA).minusDays(90));
+        Map<String, List<Bar>> bars = data.adjustedBars(LocalDate.now(BacktestService.JAKARTA).minusDays(90), false);
         LocalDate marketDate = bars.values().stream().filter(b -> !b.isEmpty())
                 .map(b -> b.getLast().date()).max(Comparator.naturalOrder()).orElse(null);
 
@@ -61,7 +61,7 @@ public class WatchlistService {
                 noData.add(stock.ticker());
                 continue;
             }
-            BrokerSignal broker = brokerSignal(stock.ticker(), marketDate);
+            BrokerSignal broker = stock.brokerTracked() ? brokerSignal(stock.ticker(), marketDate) : null;
             if (broker != null) withBrokerData++;
             MomentumScorer.Score score = MomentumScorer.score(f, broker);
 

@@ -22,8 +22,9 @@ public class PriceRepository {
         this.jdbcTemplate = jdbcTemplate;
     }
 
+    /** Every listed (active) stock: prices are imported for all of them. */
     public List<String> trackedTickers() {
-        return jdbc.sql("SELECT ticker FROM stock ORDER BY ticker").query(String.class).list();
+        return jdbc.sql("SELECT ticker FROM stock WHERE active ORDER BY ticker").query(String.class).list();
     }
 
     /** Most recent stored trading day for {@code ticker}, or null if none yet. */

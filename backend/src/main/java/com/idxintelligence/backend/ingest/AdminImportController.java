@@ -10,12 +10,22 @@ public class AdminImportController {
 
     private final PriceImportService priceImport;
     private final BrokerImportService brokerImport;
+    private final StockListingService stockListing;
     private final AdminAuth adminAuth;
 
-    public AdminImportController(PriceImportService priceImport, BrokerImportService brokerImport, AdminAuth adminAuth) {
+    public AdminImportController(PriceImportService priceImport, BrokerImportService brokerImport,
+                                 StockListingService stockListing, AdminAuth adminAuth) {
         this.priceImport = priceImport;
         this.brokerImport = brokerImport;
+        this.stockListing = stockListing;
         this.adminAuth = adminAuth;
+    }
+
+    @PostMapping("/api/admin/import/stocks")
+    public StockListingService.Result importStockListing(
+            @RequestHeader(value = "X-Admin-Token", required = false) String token) {
+        adminAuth.require(token);
+        return stockListing.sync();
     }
 
     @PostMapping("/api/admin/import/prices")

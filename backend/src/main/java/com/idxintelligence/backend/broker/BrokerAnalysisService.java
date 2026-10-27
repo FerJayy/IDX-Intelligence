@@ -74,6 +74,7 @@ public class BrokerAnalysisService {
                 OffsetDateTime.now(MarketService.JAKARTA),
                 quote.ticker(),
                 range.code(),
+                quote.brokerTracked(),
                 from,
                 to,
                 tradingDays,

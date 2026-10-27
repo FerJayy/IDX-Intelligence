@@ -69,6 +69,43 @@ public class IdxEdgeClient {
         return new BrokerDay(brokers, parseRemaining(response.getHeaders().getFirst("x-ratelimit-remaining")));
     }
 
+    /** One page (max 50) of the full listing, largest market cap first. Costs one request. */
+    public ListingPage listingPage(int page) {
+        ResponseEntity<ListingPage> response = http.get()
+                .uri(uri -> uri.path("/api/market-cap").queryParam("page", page).queryParam("per_page", 50).build())
+                .header("X-API-Key", apiKey)
+                .retrieve()
+                .onStatus(status -> status.value() == 429, (request, resp) -> {
+                    throw new QuotaExhaustedException();
+                })
+                .onStatus(HttpStatusCode::isError, (request, resp) -> {
+                    throw new IllegalStateException("IDX Edge returned HTTP " + resp.getStatusCode().value());
+                })
+                .toEntity(ListingPage.class);
+        ListingPage body = response.getBody();
+        if (body == null || body.stocks() == null) {
+            throw new IllegalStateException("IDX Edge returned an empty listing page " + page);
+        }
+        return body;
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record ListingPage(
+            @JsonProperty("total") int total,
+            @JsonProperty("page") int page,
+            @JsonProperty("total_pages") int totalPages,
+            @JsonProperty("data") List<ListedStock> stocks) {
+    }
+
+    /** @param listedShares and marketCap may be null when the provider doesn't know them */
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record ListedStock(
+            @JsonProperty("code") String code,
+            @JsonProperty("name") String name,
+            @JsonProperty("listed_shares") BigDecimal listedShares,
+            @JsonProperty("market_cap") BigDecimal marketCap) {
+    }
+
     private static Integer parseRemaining(String header) {
         try {
             return header == null ? null : Integer.valueOf(header.trim());

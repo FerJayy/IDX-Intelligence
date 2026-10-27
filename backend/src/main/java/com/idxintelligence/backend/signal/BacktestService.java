@@ -59,7 +59,8 @@ public class BacktestService {
         }
         long started = System.nanoTime();
         LocalDate from = LocalDate.now(JAKARTA).minusYears(HISTORY_YEARS);
-        Map<String, List<Bar>> bars = data.adjustedBars(from);
+        // Broker-tracked stocks only: loading years of prices for every listing on each refresh is too slow.
+        Map<String, List<Bar>> bars = data.adjustedBars(from, true);
         Map<LocalDate, double[]> index = data.compositeIndex(from);
         long loaded = System.nanoTime();
         Result fresh = run(bars, index, latest, entry);

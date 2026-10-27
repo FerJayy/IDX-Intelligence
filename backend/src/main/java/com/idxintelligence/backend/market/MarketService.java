@@ -4,11 +4,15 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
+import java.util.Objects;
+import java.util.function.Function;
 
 @Service
 public class MarketService {
@@ -17,6 +21,9 @@ public class MarketService {
     public static final String DEMO_NOTICE = "DEMO DATA — NOT LIVE MARKET DATA";
 
     private static final int LIST_SIZE = 5;
+    /** Minimum traded value (IDR) for a stock to count as a top gainer or loser. */
+    static final BigDecimal MIN_MOVER_VALUE = new BigDecimal("1000000000");
+    static final int MAX_PAGE_SIZE = 200;
 
     private final MarketDataProvider provider;
 
@@ -27,13 +34,16 @@ public class MarketService {
     public MarketOverview overview() {
         List<StockQuote> quotes = provider.quotes();
 
-        List<StockQuote> gainers = quotes.stream()
+        // Gainers/losers ignore thinly traded stocks: a few lots can move them 20%+, which says little.
+        List<StockQuote> movers = quotes.stream().filter(MarketService::liquidEnough).toList();
+
+        List<StockQuote> gainers = movers.stream()
                 .filter(q -> q.changePercent() != null && q.changePercent().signum() > 0)
                 .sorted(Comparator.comparing(StockQuote::changePercent).reversed())
                 .limit(LIST_SIZE)
                 .toList();
 
-        List<StockQuote> losers = quotes.stream()
+        List<StockQuote> losers = movers.stream()
                 .filter(q -> q.changePercent() != null && q.changePercent().signum() < 0)
                 .sorted(Comparator.comparing(StockQuote::changePercent))
                 .limit(LIST_SIZE)
@@ -63,6 +73,55 @@ public class MarketService {
                 losers,
                 mostActive
         );
+    }
+
+    /**
+     * Searchable, sortable list of all stocks. Sort keys: ticker, price, change, volume, value, marketCap.
+     * Missing values always sort last, whatever the direction.
+     */
+    public StockList list(String search, String sector, String sort, boolean ascending, int page, int size) {
+        List<StockQuote> quotes = provider.quotes();
+        List<String> sectors = quotes.stream().map(StockQuote::sector).filter(Objects::nonNull)
+                .distinct().sorted().toList();
+
+        String needle = search == null ? "" : search.trim().toLowerCase(Locale.ROOT);
+        List<StockQuote> matching = quotes.stream()
+                .filter(q -> needle.isEmpty()
+                        || q.ticker().toLowerCase(Locale.ROOT).contains(needle)
+                        || (q.name() != null && q.name().toLowerCase(Locale.ROOT).contains(needle)))
+                .filter(q -> sector == null || sector.isBlank() || sector.equals(q.sector()))
+                .sorted(comparator(sort, ascending))
+                .toList();
+
+        int pageSize = Math.max(1, Math.min(size, MAX_PAGE_SIZE));
+        int pageIndex = Math.max(1, page);
+        int fromIndex = Math.min((pageIndex - 1) * pageSize, matching.size());
+        List<StockQuote> pageItems = matching.subList(fromIndex, Math.min(fromIndex + pageSize, matching.size()));
+
+        return new StockList(provider.isDemo(), provider.sourceName(), notice(), OffsetDateTime.now(JAKARTA),
+                dataDate(provider.latestTradingDate()), matching.size(), pageIndex, pageSize, sectors, pageItems);
+    }
+
+    private static Comparator<StockQuote> comparator(String sort, boolean ascending) {
+        if (sort == null || sort.isBlank() || sort.equals("ticker")) {
+            Comparator<StockQuote> byTicker = Comparator.comparing(StockQuote::ticker);
+            return ascending ? byTicker : byTicker.reversed();
+        }
+        Function<StockQuote, BigDecimal> key = switch (sort) {
+            case "price" -> StockQuote::lastPrice;
+            case "change" -> StockQuote::changePercent;
+            case "volume" -> q -> q.volume() == null ? null : BigDecimal.valueOf(q.volume());
+            case "value" -> StockQuote::value;
+            case "marketCap" -> StockQuote::marketCap;
+            default -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Unknown sort '" + sort + "'. Use ticker, price, change, volume, value or marketCap.");
+        };
+        Comparator<BigDecimal> direction = ascending ? Comparator.naturalOrder() : Comparator.reverseOrder();
+        return Comparator.comparing(key, Comparator.nullsLast(direction)).thenComparing(StockQuote::ticker);
+    }
+
+    private static boolean liquidEnough(StockQuote q) {
+        return q.value() != null && q.value().compareTo(MIN_MOVER_VALUE) >= 0;
     }
 
     public StockDetail stock(String ticker) {

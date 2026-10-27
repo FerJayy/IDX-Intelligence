@@ -26,6 +26,7 @@ public class BrokerImportRepository {
 
     private static final String PENDING_FROM = """
             FROM daily_price p
+            JOIN stock s ON s.ticker = p.ticker AND s.broker_tracked AND s.active
             CROSS JOIN (VALUES ('ALL'), ('F')) AS f(flow)
             WHERE p.trade_date >= ?
               AND NOT EXISTS (SELECT 1 FROM broker_import_day d

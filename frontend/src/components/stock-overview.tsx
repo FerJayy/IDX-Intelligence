@@ -85,10 +85,12 @@ export async function StockOverview({ ticker, range }: { ticker: string; range: 
             ))}
           </nav>
         </div>
-        <PriceChart locale={locale} labels={t.chart} bars={history.bars} flows={brokers?.daily} />
+        <PriceChart locale={locale} labels={t.chart} bars={history.bars} flows={brokers?.tracked ? brokers.daily : undefined} />
       </section>
 
-      {brokers ? (
+      {brokers && !brokers.tracked && !brokers.demo ? (
+        <p className="rounded-xl border border-line p-4 text-sm text-muted">{t.stock.brokerNotTracked}</p>
+      ) : brokers ? (
         <BrokerActivity summary={brokers} />
       ) : (
         <p className="rounded-xl border border-line p-4 text-sm text-faint">{t.stock.brokerUnavailable}</p>

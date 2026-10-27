@@ -21,7 +21,7 @@ public class SignalDataRepository {
         this.jdbc = jdbc;
     }
 
-    record StockInfo(String ticker, String name, String sector) {
+    record StockInfo(String ticker, String name, String sector, boolean brokerTracked) {
     }
 
     /** Latest trading day with any stored price, or null. */
@@ -31,8 +31,9 @@ public class SignalDataRepository {
 
     Map<String, StockInfo> stocks() {
         Map<String, StockInfo> stocks = new LinkedHashMap<>();
-        jdbc.sql("SELECT ticker, name, sector FROM stock ORDER BY ticker")
-                .query((rs, n) -> new StockInfo(rs.getString("ticker"), rs.getString("name"), rs.getString("sector")))
+        jdbc.sql("SELECT ticker, name, sector, broker_tracked FROM stock WHERE active ORDER BY ticker")
+                .query((rs, n) -> new StockInfo(rs.getString("ticker"), rs.getString("name"), rs.getString("sector"),
+                        rs.getBoolean("broker_tracked")))
                 .list()
                 .forEach(s -> stocks.put(s.ticker(), s));
         return stocks;
@@ -41,15 +42,19 @@ public class SignalDataRepository {
     /**
      * Daily bars per ticker since {@code from}, oldest first. Prices are multiplied by
      * adjusted_close / close so splits and dividends don't show up as fake price jumps.
+     *
+     * @param trackedOnly only the broker-tracked stocks (a much smaller set) instead of all active ones
      */
-    Map<String, List<Bar>> adjustedBars(LocalDate from) {
+    Map<String, List<Bar>> adjustedBars(LocalDate from, boolean trackedOnly) {
         Map<String, List<Bar>> bars = new HashMap<>();
         jdbc.sql("""
-                SELECT ticker, trade_date, open, high, low, close, adjusted_close, volume
-                FROM daily_price WHERE trade_date >= ?
-                ORDER BY ticker, trade_date
+                SELECT p.ticker, p.trade_date, p.open, p.high, p.low, p.close, p.adjusted_close, p.volume
+                FROM daily_price p
+                JOIN stock s ON s.ticker = p.ticker AND s.active AND (s.broker_tracked OR NOT ?)
+                WHERE p.trade_date >= ?
+                ORDER BY p.ticker, p.trade_date
                 """)
-                .param(Date.valueOf(from))
+                .params(trackedOnly, Date.valueOf(from))
                 .query((rs, n) -> {
                     double close = rs.getDouble("close");
                     BigDecimal adjusted = rs.getBigDecimal("adjusted_close");

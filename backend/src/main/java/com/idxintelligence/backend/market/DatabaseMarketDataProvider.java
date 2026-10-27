@@ -59,7 +59,8 @@ public class DatabaseMarketDataProvider implements MarketDataProvider {
     public List<StockQuote> quotes() {
         LocalDate marketDate = latestTradingDate();
         return jdbc.sql("""
-                SELECT s.ticker, s.name, s.sector, cur.trade_date, cur.close, cur.volume, prev.close AS previous_close
+                SELECT s.ticker, s.name, s.sector, s.market_cap, s.broker_tracked,
+                       cur.trade_date, cur.close, cur.volume, prev.close AS previous_close
                 FROM stock s
                 LEFT JOIN LATERAL (
                     SELECT trade_date, close, volume FROM daily_price p
@@ -69,6 +70,7 @@ public class DatabaseMarketDataProvider implements MarketDataProvider {
                     SELECT close FROM daily_price p
                     WHERE p.ticker = s.ticker AND p.trade_date < cur.trade_date ORDER BY trade_date DESC LIMIT 1
                 ) prev ON true
+                WHERE s.active
                 ORDER BY s.ticker
                 """)
                 .query((rs, n) -> {
@@ -76,7 +78,8 @@ public class DatabaseMarketDataProvider implements MarketDataProvider {
                     StockQuote quote = StockQuote.of(rs.getString("ticker"), rs.getString("name"), rs.getString("sector"),
                             date == null ? null : date.toLocalDate(),
                             rs.getBigDecimal("close"), rs.getBigDecimal("previous_close"),
-                            rs.getObject("volume", Long.class));
+                            rs.getObject("volume", Long.class),
+                            rs.getBigDecimal("market_cap"), rs.getBoolean("broker_tracked"));
                     boolean stale = quote.tradeDate() == null || !quote.tradeDate().equals(marketDate);
                     return stale ? quote.withoutDailyChange() : quote;
                 })

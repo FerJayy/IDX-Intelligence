@@ -31,6 +31,9 @@ class DatabaseProvidersTests extends EmbeddedPostgresTest {
     private BrokerAnalysisService brokerAnalysis;
 
     @Autowired
+    private com.idxintelligence.backend.market.MarketService marketService;
+
+    @Autowired
     private JdbcClient jdbc;
 
     @BeforeEach
@@ -72,6 +75,20 @@ class DatabaseProvidersTests extends EmbeddedPostgresTest {
         StockQuote unvr = market.quote("UNVR").orElseThrow();
         assertThat(unvr.name()).isEqualTo("Unilever Indonesia");
         assertThat(unvr.lastPrice()).isNull();
+    }
+
+    @Test
+    void thinlyTradedStocksAreNotTopMovers() {
+        // UNVR jumps 50% on Rp15.000 of trading: real for the breadth count, but not a top gainer.
+        price("UNVR", THU, 100, 100);
+        price("UNVR", FRI, 150, 100);
+        // BBCA trades Rp5,1 miliar on Friday: liquid enough to count.
+        jdbc.sql("UPDATE daily_price SET volume = 1000000 WHERE ticker = 'BBCA' AND trade_date = ?").param(Date.valueOf(FRI)).update();
+
+        var overview = marketService.overview();
+
+        assertThat(overview.topGainers()).extracting(StockQuote::ticker).doesNotContain("UNVR").contains("BBCA");
+        assertThat(overview.advancers()).isEqualTo(2);
     }
 
     @Test

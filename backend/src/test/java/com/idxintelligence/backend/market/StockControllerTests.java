@@ -29,6 +29,20 @@ class StockControllerTests {
     }
 
     @Test
+    void stockListSearchesSortsAndPages() throws Exception {
+        mockMvc.perform(get("/api/stocks?search=bank&sort=change&order=desc"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.total").value(3))
+                .andExpect(jsonPath("$.stocks[0].ticker").value("BMRI"))   // +1,21%, then BBCA +0,77%, BBRI -1,46%
+                .andExpect(jsonPath("$.stocks[2].ticker").value("BBRI"));
+        mockMvc.perform(get("/api/stocks?sector=Energy&sort=ticker&order=asc&size=1&page=2"))
+                .andExpect(jsonPath("$.total").value(2))
+                .andExpect(jsonPath("$.stocks.length()").value(1))
+                .andExpect(jsonPath("$.stocks[0].ticker").value("PGAS"));
+        mockMvc.perform(get("/api/stocks?sort=nonsense")).andExpect(status().isBadRequest());
+    }
+
+    @Test
     void unknownTickerReturns404() throws Exception {
         mockMvc.perform(get("/api/stocks/XXXX")).andExpect(status().isNotFound());
         mockMvc.perform(get("/api/stocks/XXXX/prices")).andExpect(status().isNotFound());

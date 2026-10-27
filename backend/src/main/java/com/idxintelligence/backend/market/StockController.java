@@ -16,6 +16,17 @@ public class StockController {
         this.marketService = marketService;
     }
 
+    /** All stocks, searchable by code or name, filterable by sector, sortable; default: biggest first. */
+    @GetMapping
+    public StockList list(@RequestParam(required = false) String search,
+                          @RequestParam(required = false) String sector,
+                          @RequestParam(defaultValue = "marketCap") String sort,
+                          @RequestParam(defaultValue = "desc") String order,
+                          @RequestParam(defaultValue = "1") int page,
+                          @RequestParam(defaultValue = "50") int size) {
+        return marketService.list(search, sector, sort, "asc".equalsIgnoreCase(order), page, size);
+    }
+
     @GetMapping("/{ticker}")
     public StockDetail stock(@PathVariable String ticker) {
         return marketService.stock(ticker);

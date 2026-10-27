@@ -57,6 +57,10 @@ class BrokerImportServiceTests extends EmbeddedPostgresTest {
                         .params(ticker, java.sql.Date.valueOf(day)).update();
             }
         }
+        // A stock without broker tracking: its prices exist, but no broker summaries should be fetched.
+        jdbc.sql("INSERT INTO stock (ticker, name, broker_tracked) VALUES ('UNTX', 'Untracked', false) ON CONFLICT DO NOTHING").update();
+        jdbc.sql("INSERT INTO daily_price (ticker, trade_date, close, volume, source) VALUES ('UNTX', ?, 100, 1000, 'TEST')")
+                .param(java.sql.Date.valueOf(FRI)).update();
         when(client.isConfigured()).thenReturn(true);
     }
 
@@ -69,7 +73,7 @@ class BrokerImportServiceTests extends EmbeddedPostgresTest {
 
         BrokerImportService.Result result = service(100).importBatch();
 
-        assertThat(result.calls()).isEqualTo(8); // 2 stocks x 2 days x 2 flows
+        assertThat(result.calls()).isEqualTo(8); // 2 tracked stocks x 2 days x 2 flows; UNTX skipped
         assertThat(result.stillPending()).isZero();
         InOrder order = inOrder(client);
         order.verify(client).brokerSummary("BBCA", FRI, ALL);

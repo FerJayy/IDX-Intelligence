@@ -6,6 +6,7 @@ import java.time.OffsetDateTime;
 import java.util.List;
 
 /**
+ * @param tracked     whether broker summaries are imported for this stock at all
  * @param tradingDays trading days in the range (from price data)
  * @param brokerDays  of those, days that have broker data; fewer while the backfill is running
  */
@@ -16,6 +17,7 @@ public record BrokerSummary(
         OffsetDateTime generatedAt,
         String ticker,
         String range,
+        boolean tracked,
         LocalDate from,
         LocalDate to,
         int tradingDays,

@@ -1,6 +1,7 @@
 # Triggers an import on a running backend.
 #
 # Usage (from the backend folder, with the backend running):
+#   powershell -ExecutionPolicy Bypass -File scripts\import.ps1 stocks    # refresh the IDX stock list (~20 requests)
 #   powershell -ExecutionPolicy Bypass -File scripts\import.ps1 prices    # Yahoo daily prices
 #   powershell -ExecutionPolicy Bypass -File scripts\import.ps1 brokers   # IDX Edge broker summaries
 #   powershell -ExecutionPolicy Bypass -File scripts\import.ps1 stats     # row counts and storage used
@@ -8,7 +9,7 @@
 # On first use it creates a random ADMIN_TOKEN in backend/.env. Restart the backend
 # after that so it picks up the token, then run this script again.
 param(
-    [Parameter(Position = 0)][ValidateSet("prices", "brokers", "stats")][string]$Job = "prices",
+    [Parameter(Position = 0)][ValidateSet("stocks", "prices", "brokers", "stats")][string]$Job = "prices",
     [string]$BaseUrl = "http://localhost:8080",
     [string]$EnvFile
 )
@@ -38,9 +39,15 @@ $token = $line.Substring("ADMIN_TOKEN=".Length).Trim()
 $headers = @{ "X-Admin-Token" = $token }
 try {
     switch ($Job) {
+        "stocks" {
+            Write-Host "Refreshing the IDX stock list from IDX Edge via $BaseUrl ..."
+            $r = Invoke-RestMethod -Method Post -Uri "$BaseUrl/api/admin/import/stocks" -Headers $headers -TimeoutSec 600
+            if ($r.skipped) { Write-Host "Skipped: $($r.note)"; exit 0 }
+            Write-Host ("Done: {0}" -f $r.note)
+        }
         "prices" {
-            Write-Host "Importing prices from Yahoo via $BaseUrl ... (first run backfills ~10 years; can take a few minutes)"
-            $r = Invoke-RestMethod -Method Post -Uri "$BaseUrl/api/admin/import/prices" -Headers $headers -TimeoutSec 1800
+            Write-Host "Importing prices from Yahoo via $BaseUrl ... (new stocks get 5 years of history: the first full run can take up to an hour)"
+            $r = Invoke-RestMethod -Method Post -Uri "$BaseUrl/api/admin/import/prices" -Headers $headers -TimeoutSec 7200
             if ($r.alreadyRunning) { Write-Host "An import is already running. Try again when it finishes."; exit 0 }
             Write-Host ("Done: {0}/{1} stocks OK, {2} failed, {3} rows written, checked through {4}." -f `
                 $r.stocksOk, $r.stocks, $r.stocksFailed, $r.rowsWritten, $r.upToDate)
