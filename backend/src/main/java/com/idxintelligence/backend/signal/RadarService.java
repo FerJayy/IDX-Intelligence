@@ -75,9 +75,23 @@ public class RadarService {
     public record Screener(List<PickOutcome> picks, List<OutcomeSummary> summary, BigDecimal averageClaimedWinRate) {
     }
 
-    public record Radar(OffsetDateTime generatedAt, LocalDate brokerDataDate, int windowDays, int trackedStocks,
-                        List<RadarRow> rows, Screener screener) {
+    /**
+     * One broker that net bought one stock several days in a row, ending on the stock's latest broker day.
+     *
+     * @param gap last price / the broker's average buy price over the run - 1
+     */
+    public record BrokerStockStreak(String ticker, String stockName, boolean hsc, String brokerCode, String brokerName,
+                                    int days, long netVolume, BigDecimal netValue, BigDecimal averageBuyPrice,
+                                    BigDecimal lastPrice, BigDecimal gap) {
     }
+
+    public record Radar(OffsetDateTime generatedAt, LocalDate brokerDataDate, int windowDays, int trackedStocks,
+                        List<RadarRow> rows, List<BrokerStockStreak> streaks, Screener screener) {
+    }
+
+    /** Streaks shorter than this aren't listed: two days in a row happens by chance all the time. */
+    static final int MIN_STREAK_DAYS = 3;
+    static final int MAX_STREAKS = 40;
 
     // ---------- computation ----------
 
@@ -114,6 +128,7 @@ public class RadarService {
                 .list();
 
         List<RadarRow> rows = new ArrayList<>();
+        List<BrokerStockStreak> streaks = new ArrayList<>();
         if (latestBrokerDay != null && !names.isEmpty()) {
             // Enough calendar days to cover the window's trading days, plus holidays.
             Map<String, List<BrokerDailyActivity>> activity = activity(latestBrokerDay.minusDays(window * 2L + 14));
@@ -122,13 +137,19 @@ public class RadarService {
                 RadarRow row = row(ticker, name, hsc.contains(ticker), window, activity.getOrDefault(ticker, List.of()),
                         bars.getOrDefault(ticker, List.of()), latestBrokerDay);
                 if (row != null) rows.add(row);
+                List<Bar> stockBars = bars.getOrDefault(ticker, List.of());
+                BigDecimal last = stockBars.isEmpty() ? null
+                        : BigDecimal.valueOf(stockBars.getLast().close()).setScale(0, RoundingMode.HALF_UP);
+                streaks.addAll(streaks(ticker, name, hsc.contains(ticker), activity.getOrDefault(ticker, List.of()), last));
             });
         }
+        streaks.sort(Comparator.comparingInt(BrokerStockStreak::days).reversed()
+                .thenComparing(BrokerStockStreak::netValue, Comparator.reverseOrder()));
         rows.sort(Comparator.comparing((RadarRow r) -> r.excludedBecause() != null)
                 .thenComparing(RadarRow::score, Comparator.reverseOrder())
                 .thenComparing(RadarRow::ticker));
         return new Radar(OffsetDateTime.now(BacktestService.JAKARTA), latestBrokerDay, window, names.size(), rows,
-                screener());
+                streaks.stream().limit(MAX_STREAKS).toList(), screener());
     }
 
     private Map<String, List<BrokerDailyActivity>> activity(LocalDate from) {
@@ -244,6 +265,40 @@ public class RadarService {
                 foreignNet, foreignKnown.size(), streakBroker, buyersAverage, lastPrice, exitGap,
                 features == null ? null : features.return5(), features != null && features.aboveRisingMa20(),
                 reasons, excluded);
+    }
+
+    /** Every broker with a net-buying run of at least {@link #MIN_STREAK_DAYS} ending on the stock's latest broker day. */
+    static List<BrokerStockStreak> streaks(String ticker, String name, boolean hsc, List<BrokerDailyActivity> rows,
+                                           BigDecimal lastPrice) {
+        List<LocalDate> days = rows.stream().map(BrokerDailyActivity::date).distinct().sorted().toList();
+        Map<String, Map<LocalDate, BrokerDailyActivity>> byBroker = new HashMap<>();
+        for (BrokerDailyActivity r : rows) {
+            byBroker.computeIfAbsent(r.brokerCode(), b -> new HashMap<>()).put(r.date(), r);
+        }
+        List<BrokerStockStreak> result = new ArrayList<>();
+        byBroker.forEach((code, byDay) -> {
+            int run = 0;
+            long netVolume = 0;
+            BigDecimal net = BigDecimal.ZERO;
+            BigDecimal buyValue = BigDecimal.ZERO;
+            long buyVolume = 0;
+            String brokerName = null;
+            for (int i = days.size() - 1; i >= 0; i--) {
+                BrokerDailyActivity day = byDay.get(days.get(i));
+                if (day == null || day.netVolume() <= 0) break;
+                run++;
+                netVolume += day.netVolume();
+                net = net.add(day.netValue());
+                buyValue = buyValue.add(day.buyValue());
+                buyVolume += day.buyVolume();
+                brokerName = Objects.requireNonNullElse(brokerName, day.brokerName());
+            }
+            if (run < MIN_STREAK_DAYS || buyVolume == 0) return;
+            BigDecimal avg = buyValue.divide(BigDecimal.valueOf(buyVolume), 2, RoundingMode.HALF_UP);
+            BigDecimal gap = lastPrice == null ? null : lastPrice.divide(avg, 4, RoundingMode.HALF_UP).subtract(BigDecimal.ONE);
+            result.add(new BrokerStockStreak(ticker, name, hsc, code, brokerName, run, netVolume, net, avg, lastPrice, gap));
+        });
+        return result;
     }
 
     /** Consecutive latest days with top-5 net buying (+n) or net selling (-n); 0 if the last day is balanced. */

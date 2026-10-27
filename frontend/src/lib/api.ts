@@ -288,6 +288,20 @@ export type RadarRow = {
   excludedBecause: Reason | null;
 };
 
+export type BrokerStockStreak = {
+  ticker: string;
+  stockName: string;
+  hsc: boolean;
+  brokerCode: string;
+  brokerName: string | null;
+  days: number;
+  netVolume: number; // shares
+  netValue: number;
+  averageBuyPrice: number;
+  lastPrice: number | null;
+  gap: number | null; // last price / the broker's average buy price - 1
+};
+
 export type PickOutcome = {
   pickDate: string;
   ticker: string;
@@ -313,6 +327,7 @@ export type Radar = {
   windowDays: RadarWindow;
   trackedStocks: number;
   rows: RadarRow[];
+  streaks: BrokerStockStreak[];
   screener: { picks: PickOutcome[]; summary: OutcomeSummary[]; averageClaimedWinRate: number | null };
 };
 

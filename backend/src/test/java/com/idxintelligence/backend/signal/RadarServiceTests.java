@@ -69,6 +69,23 @@ class RadarServiceTests {
     }
 
     @Test
+    void listsEachBrokerWithAThreeDayOrLongerBuyingRun() {
+        List<BrokerDailyActivity> rows = new ArrayList<>();
+        for (int i = 0; i < 4; i++) rows.addAll(accumulationDay(START.plusDays(i)));
+        rows.add(row(START.plusDays(3), "ZP", 50, 0, false)); // ZP buys only on the last day: too short
+
+        List<RadarService.BrokerStockStreak> streaks = RadarService.streaks("TEST", "Test", false, rows, BigDecimal.valueOf(1100));
+
+        assertThat(streaks).singleElement().satisfies(s -> {
+            assertThat(s.brokerCode()).isEqualTo("AK");
+            assertThat(s.days()).isEqualTo(4);
+            assertThat(s.netVolume()).isEqualTo(2400);
+            assertThat(s.averageBuyPrice()).isEqualByComparingTo("1000");
+            assertThat(s.gap()).isEqualByComparingTo("0.1"); // price 1.100 vs cost 1.000
+        });
+    }
+
+    @Test
     void distributionStreakIsNegative() {
         List<BrokerDailyActivity> rows = new ArrayList<>();
         for (int i = 0; i < 3; i++) rows.addAll(distributionDay(START.plusDays(i)));
