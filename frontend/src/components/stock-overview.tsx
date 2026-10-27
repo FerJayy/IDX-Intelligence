@@ -19,6 +19,8 @@ import { DemoBanner } from "./demo-banner";
 import { HscBadge } from "./hsc-badge";
 import { LivePrice } from "./live-price";
 import { PriceChart } from "./price-chart";
+import { WatchButton } from "./watch-button";
+import { readWatchlist } from "@/lib/watchlist";
 
 export async function StockOverview({
   ticker,
@@ -61,7 +63,7 @@ export async function StockOverview({
 
   if (!stock || !chart) notFound();
   const { quote } = stock;
-  const brokers = await brokerRequest;
+  const [brokers, watchlist] = await Promise.all([brokerRequest, readWatchlist()]);
   const hrefFor = (i: Interval, r?: string) =>
     `/${locale}/stocks/${quote.ticker}?tf=${i}${r ? `&range=${r}` : ""}`;
 
@@ -77,6 +79,9 @@ export async function StockOverview({
           </h1>
           <p className="text-fg">{quote.name}</p>
           {quote.sector && <p className="text-sm text-faint">{quote.sector}</p>}
+          <div className="mt-2">
+            <WatchButton ticker={quote.ticker} watched={watchlist.includes(quote.ticker)} labels={t.watchlist.button} />
+          </div>
         </div>
         <div className="text-right">
           <p className="text-3xl font-bold tabular-nums">{f.price(quote.lastPrice)}</p>

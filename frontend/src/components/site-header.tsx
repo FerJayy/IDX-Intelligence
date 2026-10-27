@@ -12,7 +12,7 @@ export async function SiteHeader() {
           <Link href={`/${locale}`} className="font-bold tracking-tight">
             {t.common.appName}
           </Link>
-          <nav className="flex gap-4 text-sm text-muted">
+          <nav className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted">
             <Link href={`/${locale}`} className="hover:text-fg">
               {t.nav.overview}
             </Link>
@@ -27,6 +27,9 @@ export async function SiteHeader() {
             </Link>
             <Link href={`/${locale}/ihsg`} className="hover:text-fg">
               {t.nav.ihsg}
+            </Link>
+            <Link href={`/${locale}/watchlist`} className="hover:text-fg">
+              {t.nav.watchlist}
             </Link>
           </nav>
         </div>
