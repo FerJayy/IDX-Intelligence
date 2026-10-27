@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import Script from "next/script";
 import { SiteHeader } from "@/components/site-header";
 import { getI18n } from "@/lib/i18n";
 import { LOCALES } from "@/lib/i18n/locales";
@@ -15,10 +14,6 @@ const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
 });
-
-// Runs before first paint so the page never flashes the wrong theme.
-// Stored choice: "light" | "dark" | "system" (default: follow the device).
-const THEME_SCRIPT = `(function(){try{var t=localStorage.getItem('theme')||'system';var d=t==='dark'||(t==='system'&&matchMedia('(prefers-color-scheme: dark)').matches);var c=document.documentElement.classList;c.toggle('dark',d);c.toggle('light',!d);}catch(e){}})();`;
 
 export function generateStaticParams() {
   return LOCALES.map((lang) => ({ lang }));
@@ -35,15 +30,10 @@ export default async function RootLayout({ children }: LayoutProps<"/[lang]">) {
     <html
       lang={locale}
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-      // The theme script changes the class before React hydrates.
+      // The theme switch adds .light/.dark after hydration.
       suppressHydrationWarning
     >
       <body className="flex min-h-full flex-col bg-page text-fg">
-        {/* beforeInteractive: Next puts this in the initial HTML so it runs before the page paints.
-            (A plain <script> inside a component triggers a React warning.) */}
-        <Script id="theme-init" strategy="beforeInteractive">
-          {THEME_SCRIPT}
-        </Script>
         <SiteHeader />
         {children}
       </body>

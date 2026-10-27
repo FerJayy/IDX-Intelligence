@@ -2,7 +2,8 @@
 
 /*
  * Semantic colour tokens. Components use these (bg-page, text-muted, text-up, ...) instead of
- * fixed colours, so light and dark themes are one class switch on <html>.
+ * fixed colours. Dark applies when <html> has .dark, or when the device prefers dark and <html>
+ * isn't marked .light. The theme switch sets the class from the visitor's stored choice.
  * Up/down pairs were checked for colour-vision deficiency on each theme's surface;
  * charts also use hollow vs filled candles so direction never relies on colour alone.
  */
@@ -74,6 +75,44 @@
   --chart-text: #94a3b8;
   --chart-foreign: #38bdf8;
   color-scheme: dark;
+}
+
+/* Follow the device when no explicit choice was made (no script needed, so no flash). */
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) {
+    --page: #020617;
+    --card: #0b1222;
+    --card-strong: #0f172a;
+    --line: #1e293b;
+    --fg: #f1f5f9;
+    --muted: #94a3b8;
+    --faint: #64748b;
+    --accent: #7dd3fc;
+    --chip: #1e293b;
+    --up: #34d399;
+    --down: #f87171;
+    --warn-bg: rgb(245 158 11 / 0.1);
+    --warn-fg: #fcd34d;
+    --warn-line: rgb(245 158 11 / 0.6);
+    --info-bg: rgb(14 165 233 / 0.1);
+    --info-fg: #bae6fd;
+    --info-line: rgb(14 165 233 / 0.4);
+    --danger-bg: rgb(127 29 29 / 0.35);
+    --danger-fg: #fca5a5;
+    --danger-line: #7f1d1d;
+    --up-bg: rgb(16 185 129 / 0.1);
+    --up-line: rgb(16 185 129 / 0.5);
+    --down-bg: rgb(239 68 68 / 0.1);
+    --down-line: rgb(239 68 68 / 0.5);
+
+    --chart-up: #34d399;
+    --chart-down: #ef4444;
+    --chart-volume: #475569;
+    --chart-grid: #1e293b;
+    --chart-text: #94a3b8;
+    --chart-foreign: #38bdf8;
+    color-scheme: dark;
+  }
 }
 
 @theme inline {

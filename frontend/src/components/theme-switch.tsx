@@ -38,6 +38,8 @@ export function ThemeSwitch({ labels }: { labels: { label: string } & Record<The
   // null on the server, which can't know the stored choice.
   const theme = useSyncExternalStore<Theme | null>(subscribe, readStored, () => null);
 
+  // Applies the stored choice once mounted. Until then the CSS follows the device setting, so only
+  // visitors who chose the opposite of their device see a brief flash on a full page load.
   useEffect(() => {
     if (theme == null) return;
     apply(theme);
