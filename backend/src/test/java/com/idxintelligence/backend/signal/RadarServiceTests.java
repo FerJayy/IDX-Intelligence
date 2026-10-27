@@ -98,6 +98,18 @@ class RadarServiceTests {
     }
 
     @Test
+    void hscStocksAreListedSeparatelyWhateverTheirFlow() {
+        List<BrokerDailyActivity> rows = new ArrayList<>();
+        for (int i = 0; i < 4; i++) rows.addAll(accumulationDay(START.plusDays(i)));
+        LocalDate last = START.plusDays(3);
+
+        RadarService.RadarRow radar = RadarService.row("BREN", "Barito Renewables", true, 10, rows, flatBars(last), last);
+
+        assertThat(radar.excludedBecause().code()).isEqualTo("HSC");
+        assertThat(radar.score()).isPositive(); // the flow is still shown
+    }
+
+    @Test
     void illiquidStocksAreFlaggedAndStaleDataIsNoted() {
         List<BrokerDailyActivity> rows = new ArrayList<>(accumulationDay(START));
         List<Bar> thin = new ArrayList<>();

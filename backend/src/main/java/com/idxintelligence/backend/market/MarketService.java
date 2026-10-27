@@ -87,11 +87,19 @@ public class MarketService {
      * Missing values always sort last, whatever the direction.
      */
     public StockList list(String search, String sector, String sort, boolean ascending, int page, int size) {
-        return list(search, sector, null, sort, ascending, page, size);
+        return list(search, sector, null, null, sort, ascending, page, size);
     }
 
-    /** @param change "up", "down" or "flat" to keep only stocks that moved that way on the latest day */
     public StockList list(String search, String sector, String change, String sort, boolean ascending, int page, int size) {
+        return list(search, sector, change, null, sort, ascending, page, size);
+    }
+
+    /**
+     * @param change "up", "down" or "flat" to keep only stocks that moved that way on the latest day
+     * @param hsc    "only" or "exclude" for stocks on IDX's High Shareholding Concentration list
+     */
+    public StockList list(String search, String sector, String change, String hsc, String sort, boolean ascending,
+                          int page, int size) {
         List<StockQuote> quotes = provider.quotes();
         List<String> sectors = quotes.stream().map(StockQuote::sector).filter(Objects::nonNull)
                 .distinct().sorted().toList();
@@ -103,6 +111,7 @@ public class MarketService {
                         || (q.name() != null && q.name().toLowerCase(Locale.ROOT).contains(needle)))
                 .filter(q -> sector == null || sector.isBlank() || sector.equals(q.sector()))
                 .filter(q -> change == null || change.isBlank() || matchesChange(q, change))
+                .filter(q -> hsc == null || hsc.isBlank() || matchesHsc(q, hsc))
                 .sorted(comparator(sort, ascending))
                 .toList();
 
@@ -131,6 +140,14 @@ public class MarketService {
         };
         Comparator<BigDecimal> direction = ascending ? Comparator.naturalOrder() : Comparator.reverseOrder();
         return Comparator.comparing(key, Comparator.nullsLast(direction)).thenComparing(StockQuote::ticker);
+    }
+
+    private static boolean matchesHsc(StockQuote q, String hsc) {
+        return switch (hsc) {
+            case "only" -> q.hsc();
+            case "exclude" -> !q.hsc();
+            default -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "hsc must be only or exclude");
+        };
     }
 
     private static boolean matchesChange(StockQuote q, String change) {

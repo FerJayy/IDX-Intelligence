@@ -96,6 +96,16 @@ export const en = {
     entry: "Close",
     noPicks: "No picks saved yet. They're saved every weekday at 19:15 WIB.",
   },
+  hsc: {
+    badge: "HSC",
+    title:
+      "High Shareholding Concentration: a few holders own almost all shares, so prices and broker flow can be steered. IDX removes these stocks from the IHSG from 2 Nov 2026; they still trade.",
+    note: "This stock is on IDX's High Shareholding Concentration (HSC) list: a few holders own almost all shares, so its price and broker flow can be moved by a small group. IDX removes HSC stocks from the IHSG from 2 November 2026; they keep trading.",
+    filter: "HSC",
+    filterAll: "All stocks",
+    filterExclude: "Hide HSC",
+    filterOnly: "HSC only",
+  },
   dashboard: {
     openIhsg: "Open IHSG chart →",
     seeAll: "See all →",
@@ -304,6 +314,7 @@ export const en = {
       `Price is ${f.fraction(n(v.gap))} above the top buyers' average cost (${f.price(n(v.averagePrice))}): they may take profit`,
     RADAR_BELOW_BUYERS_COST: (v, f) =>
       `Price is ${f.fraction(Math.abs(n(v.gap)))} below the top buyers' average cost (${f.price(n(v.averagePrice))})`,
+    HSC: () => "On IDX's High Shareholding Concentration list: a few holders own almost all shares",
     LOW_LIQUIDITY: (v, f) =>
       `Low liquidity: averages ${f.rupiah(n(v.avgValue))} traded per day (minimum ${f.rupiah(n(v.minValue))})`,
     NEAR_LIMIT_UP: (v, f) => `Up ${f.signedFraction(n(v.change))} today, likely at the daily limit: hard to buy at the open`,

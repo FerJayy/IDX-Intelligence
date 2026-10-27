@@ -17,6 +17,7 @@ export type StockQuote = {
   value: number | null; // estimated: last price x volume
   marketCap: number | null; // IDR, from the weekly listing sync
   brokerTracked: boolean; // broker summaries are imported for this stock
+  hsc: boolean; // on IDX's High Shareholding Concentration list
 };
 
 export type IndexSnapshot = {
@@ -132,6 +133,7 @@ export type StockListQuery = {
   search?: string;
   sector?: string;
   change?: "up" | "down" | "flat";
+  hsc?: "only" | "exclude";
   sort?: StockSort;
   order?: "asc" | "desc";
   page?: number;
@@ -142,6 +144,7 @@ export async function getStockList(query: StockListQuery): Promise<StockList> {
   if (query.search) params.set("search", query.search);
   if (query.sector) params.set("sector", query.sector);
   if (query.change) params.set("change", query.change);
+  if (query.hsc) params.set("hsc", query.hsc);
   params.set("sort", query.sort ?? "marketCap");
   params.set("order", query.order ?? "desc");
   params.set("page", String(query.page ?? 1));

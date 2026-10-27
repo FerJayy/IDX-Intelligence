@@ -31,11 +31,12 @@ public class StockController {
     public StockList list(@RequestParam(required = false) String search,
                           @RequestParam(required = false) String sector,
                           @RequestParam(required = false) String change,
+                          @RequestParam(required = false) String hsc,
                           @RequestParam(defaultValue = "marketCap") String sort,
                           @RequestParam(defaultValue = "desc") String order,
                           @RequestParam(defaultValue = "1") int page,
                           @RequestParam(defaultValue = "50") int size) {
-        return marketService.list(search, sector, change, sort, "asc".equalsIgnoreCase(order), page, size);
+        return marketService.list(search, sector, change, hsc, sort, "asc".equalsIgnoreCase(order), page, size);
     }
 
     @GetMapping("/{ticker}")

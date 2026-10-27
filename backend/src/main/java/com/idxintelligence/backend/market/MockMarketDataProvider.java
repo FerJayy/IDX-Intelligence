@@ -79,7 +79,7 @@ public class MockMarketDataProvider implements MarketDataProvider {
     private static StockQuote quote(String ticker, String name, String sector,
                                     long previousClose, long lastPrice, long volume) {
         return StockQuote.of(ticker, name, sector, null,
-                BigDecimal.valueOf(lastPrice), BigDecimal.valueOf(previousClose), volume, null, true);
+                BigDecimal.valueOf(lastPrice), BigDecimal.valueOf(previousClose), volume, null, true, false);
     }
 
     private static IndexSnapshot index(String code, String name, BigDecimal previousClose, BigDecimal value) {

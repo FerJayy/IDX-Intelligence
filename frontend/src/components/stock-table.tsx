@@ -4,6 +4,7 @@ import { getStockList, STOCK_SORTS, type StockList, type StockListQuery } from "
 import { changeColor } from "@/lib/format";
 import { getI18n } from "@/lib/i18n";
 import { DemoBanner } from "./demo-banner";
+import { HscBadge } from "./hsc-badge";
 
 // Server Component. The filter form is a plain GET form: it works without client-side JavaScript
 // and every result page has a shareable URL.
@@ -27,6 +28,7 @@ export async function StockTable({ query }: { query: StockListQuery }) {
     if (query.search) params.set("search", query.search);
     if (query.sector) params.set("sector", query.sector);
     if (query.change) params.set("change", query.change);
+    if (query.hsc) params.set("hsc", query.hsc);
     params.set("sort", query.sort ?? "marketCap");
     params.set("order", query.order ?? "desc");
     params.set("page", String(page));
@@ -54,6 +56,11 @@ export async function StockTable({ query }: { query: StockListQuery }) {
               {sector}
             </option>
           ))}
+        </select>
+        <select name="hsc" defaultValue={query.hsc ?? ""} aria-label={t.hsc.filter} className={field}>
+          <option value="">{t.hsc.filterAll}</option>
+          <option value="exclude">{t.hsc.filterExclude}</option>
+          <option value="only">{t.hsc.filterOnly}</option>
         </select>
         <select name="sort" defaultValue={query.sort} aria-label={t.stockList.sortBy} className={field}>
           {STOCK_SORTS.map((sort) => (
@@ -97,6 +104,7 @@ export async function StockTable({ query }: { query: StockListQuery }) {
                       <span className="font-mono font-semibold group-hover:text-accent group-hover:underline">
                         {s.ticker}
                       </span>
+                      {s.hsc && <HscBadge label={t.hsc.badge} title={t.hsc.title} />}
                       {s.brokerTracked && (
                         <span
                           title={t.stockList.brokerTagTitle}

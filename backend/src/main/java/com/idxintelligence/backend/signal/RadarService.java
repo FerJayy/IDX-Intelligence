@@ -100,8 +100,17 @@ public class RadarService {
         LocalDate latestBrokerDay = jdbc.sql("SELECT max(trade_date) FROM broker_daily_activity")
                 .query(LocalDate.class).optional().orElse(null);
         Map<String, String> names = new LinkedHashMap<>();
-        jdbc.sql("SELECT ticker, name FROM stock WHERE broker_tracked AND active ORDER BY ticker")
-                .query((rs, n) -> names.put(rs.getString("ticker"), rs.getString("name")))
+        java.util.Set<String> hsc = new java.util.HashSet<>();
+        jdbc.sql("""
+                SELECT s.ticker, s.name, (h.ticker IS NOT NULL) AS hsc
+                FROM stock s LEFT JOIN hsc_stock h ON h.ticker = s.ticker
+                WHERE s.broker_tracked AND s.active ORDER BY s.ticker
+                """)
+                .query((rs, n) -> {
+                    names.put(rs.getString("ticker"), rs.getString("name"));
+                    if (rs.getBoolean("hsc")) hsc.add(rs.getString("ticker"));
+                    return null;
+                })
                 .list();
 
         List<RadarRow> rows = new ArrayList<>();
@@ -110,7 +119,7 @@ public class RadarService {
             Map<String, List<BrokerDailyActivity>> activity = activity(latestBrokerDay.minusDays(window * 2L + 14));
             Map<String, List<Bar>> bars = prices.adjustedBars(latestBrokerDay.minusDays(90), true);
             names.forEach((ticker, name) -> {
-                RadarRow row = row(ticker, name, window, activity.getOrDefault(ticker, List.of()),
+                RadarRow row = row(ticker, name, hsc.contains(ticker), window, activity.getOrDefault(ticker, List.of()),
                         bars.getOrDefault(ticker, List.of()), latestBrokerDay);
                 if (row != null) rows.add(row);
             });
@@ -144,6 +153,12 @@ public class RadarService {
 
     static RadarRow row(String ticker, String name, int window, List<BrokerDailyActivity> allRows, List<Bar> bars,
                         LocalDate latestBrokerDay) {
+        return row(ticker, name, false, window, allRows, bars, latestBrokerDay);
+    }
+
+    /** @param hsc on IDX's High Shareholding Concentration list: listed separately, whatever its flow */
+    static RadarRow row(String ticker, String name, boolean hsc, int window, List<BrokerDailyActivity> allRows,
+                        List<Bar> bars, LocalDate latestBrokerDay) {
         // The window = this stock's last `window` broker days.
         List<LocalDate> days = allRows.stream().map(BrokerDailyActivity::date).distinct().sorted().toList();
         if (days.isEmpty()) return null;
@@ -212,7 +227,10 @@ public class RadarService {
         }
 
         Reason excluded = null;
-        if (features != null) {
+        if (hsc) {
+            // A few holders own almost all shares: broker flow and price can be steered, and IDX drops these from IHSG.
+            excluded = Reason.info("HSC");
+        } else if (features != null) {
             if (features.avgValue20() < MomentumScorer.MIN_AVG_VALUE) {
                 excluded = Reason.info("LOW_LIQUIDITY", "avgValue", Math.round(features.avgValue20()),
                         "minValue", Math.round(MomentumScorer.MIN_AVG_VALUE));

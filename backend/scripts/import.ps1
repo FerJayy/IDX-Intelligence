@@ -6,11 +6,16 @@
 #   powershell -ExecutionPolicy Bypass -File scripts\import.ps1 screener  # IDX Edge daily screener picks (1 request)
 #   powershell -ExecutionPolicy Bypass -File scripts\import.ps1 brokers   # IDX Edge broker summaries
 #   powershell -ExecutionPolicy Bypass -File scripts\import.ps1 stats     # row counts and storage used
+#   powershell -ExecutionPolicy Bypass -File scripts\import.ps1 hsc -ListFile hsc.txt -AsOf 2026-11-02 -Source "Peng-00xxx/BEI"
+#       replaces the HSC list; hsc.txt = the stock codes from IDX's announcement (any separators)
 #
 # On first use it creates a random ADMIN_TOKEN in backend/.env. Restart the backend
 # after that so it picks up the token, then run this script again.
 param(
-    [Parameter(Position = 0)][ValidateSet("stocks", "prices", "screener", "brokers", "stats")][string]$Job = "prices",
+    [Parameter(Position = 0)][ValidateSet("stocks", "prices", "screener", "brokers", "stats", "hsc")][string]$Job = "prices",
+    [string]$ListFile,
+    [string]$AsOf,
+    [string]$Source,
     [string]$BaseUrl = "http://localhost:8080",
     [string]$EnvFile
 )
@@ -71,6 +76,14 @@ try {
                 $r.calls, $r.failed, $r.rowsWritten, $r.oldestDay, $r.newestDay)
             Write-Host ("Stopped because: {0}. Quota left today: {1}. Still to fetch: {2} stock-days." -f `
                 $r.note, $r.remainingQuota, $r.stillPending)
+        }
+        "hsc" {
+            if (-not $ListFile -or -not $AsOf -or -not $Source) { Write-Error "hsc needs -ListFile, -AsOf (YYYY-MM-DD) and -Source"; exit 1 }
+            $codes = [regex]::Matches((Get-Content $ListFile -Raw), '[A-Z]{4}') | ForEach-Object { $_.Value } | Select-Object -Unique
+            Write-Host ("Replacing the HSC list with {0} codes (as of {1})..." -f @($codes).Count, $AsOf)
+            $body = @{ asOf = $AsOf; source = $Source; tickers = @($codes) } | ConvertTo-Json
+            $r = Invoke-RestMethod -Method Put -Uri "$BaseUrl/api/admin/hsc" -Headers $headers -ContentType "application/json" -Body $body
+            Write-Host ("Done: {0} HSC stocks as of {1}." -f $r.stocks, $r.asOf)
         }
         "stats" {
             $r = Invoke-RestMethod -Uri "$BaseUrl/api/admin/stats" -Headers $headers

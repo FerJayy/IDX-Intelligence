@@ -12,6 +12,7 @@ import java.time.LocalDate;
  * @param value         traded value in IDR, estimated as last price x volume
  * @param marketCap     IDR, from the latest listing sync; null if unknown
  * @param brokerTracked whether broker summaries are imported for this stock
+ * @param hsc           on IDX's High Shareholding Concentration list (a few holders own almost everything)
  */
 public record StockQuote(
         String ticker,
@@ -25,24 +26,25 @@ public record StockQuote(
         Long volume,
         BigDecimal value,
         BigDecimal marketCap,
-        boolean brokerTracked
+        boolean brokerTracked,
+        boolean hsc
 ) {
 
     /** Derives change, % change and value from the raw figures; any missing input leaves the result null. */
     public static StockQuote of(String ticker, String name, String sector, LocalDate tradeDate,
                                 BigDecimal lastPrice, BigDecimal previousClose, Long volume,
-                                BigDecimal marketCap, boolean brokerTracked) {
+                                BigDecimal marketCap, boolean brokerTracked, boolean hsc) {
         BigDecimal change = lastPrice == null || previousClose == null ? null : lastPrice.subtract(previousClose);
         return new StockQuote(ticker, name, sector, tradeDate, lastPrice, previousClose, change,
                 percent(change, previousClose), volume,
                 lastPrice == null || volume == null ? null : lastPrice.multiply(BigDecimal.valueOf(volume)),
-                marketCap, brokerTracked);
+                marketCap, brokerTracked, hsc);
     }
 
     /** The same stock with only its last price kept, for quotes older than the market's latest day. */
     public StockQuote withoutDailyChange() {
         return new StockQuote(ticker, name, sector, tradeDate, lastPrice, null, null, null, null, null,
-                marketCap, brokerTracked);
+                marketCap, brokerTracked, hsc);
     }
 
     static BigDecimal percent(BigDecimal change, BigDecimal base) {

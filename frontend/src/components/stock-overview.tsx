@@ -16,6 +16,7 @@ import { getI18n } from "@/lib/i18n";
 import { BrokerActivity } from "./broker-activity";
 import { ChartControls } from "./chart-controls";
 import { DemoBanner } from "./demo-banner";
+import { HscBadge } from "./hsc-badge";
 import { LivePrice } from "./live-price";
 import { PriceChart } from "./price-chart";
 
@@ -70,7 +71,10 @@ export async function StockOverview({
 
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="font-mono text-3xl font-bold">{quote.ticker}</h1>
+          <h1 className="font-mono text-3xl font-bold">
+            {quote.ticker}
+            {quote.hsc && <HscBadge label={t.hsc.badge} title={t.hsc.title} />}
+          </h1>
           <p className="text-fg">{quote.name}</p>
           {quote.sector && <p className="text-sm text-faint">{quote.sector}</p>}
         </div>
@@ -85,6 +89,10 @@ export async function StockOverview({
           {quote.tradeDate && <p className="text-xs text-faint">{t.stock.closeOf(f.tradingDate(quote.tradeDate))}</p>}
         </div>
       </header>
+
+      {quote.hsc && (
+        <p className="rounded-lg border border-warn-line bg-warn-bg px-4 py-2 text-sm text-warn-fg">{t.hsc.note}</p>
+      )}
 
       {!stock.demo && <LivePrice ticker={quote.ticker} locale={locale} labels={t.live} />}
 

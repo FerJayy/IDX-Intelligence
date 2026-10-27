@@ -72,7 +72,7 @@ class CandleServiceTests {
         when(provider.dailyBars(eq("BBCA"), any(), eq(mon))).thenReturn(List.of(
                 bar(thu, 100, 50), bar(fri, 110, 55), bar(mon, 120, 60)));
         when(provider.quote("BBCA")).thenReturn(java.util.Optional.of(
-                StockQuote.of("BBCA", "Bank Central Asia", null, mon, BigDecimal.ONE, BigDecimal.ONE, 1L, null, true)));
+                StockQuote.of("BBCA", "Bank Central Asia", null, mon, BigDecimal.ONE, BigDecimal.ONE, 1L, null, true, false)));
         CandleService service = new CandleService(provider, new MarketService(provider), mock(YahooFinanceClient.class),
                 Clock.systemUTC());
 

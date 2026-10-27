@@ -92,6 +92,16 @@ export const id: Dictionary = {
     entry: "Penutupan",
     noPicks: "Belum ada pilihan tersimpan. Disimpan setiap hari bursa pukul 19.15 WIB.",
   },
+  hsc: {
+    badge: "HSC",
+    title:
+      "High Shareholding Concentration: segelintir pemegang memiliki hampir semua saham, sehingga harga dan aliran broker bisa diarahkan. BEI mengeluarkan saham ini dari IHSG mulai 2 Nov 2026; saham tetap diperdagangkan.",
+    note: "Saham ini masuk daftar High Shareholding Concentration (HSC) BEI: segelintir pemegang memiliki hampir semua saham, sehingga harga dan aliran brokernya bisa digerakkan sekelompok kecil pihak. BEI mengeluarkan saham HSC dari IHSG mulai 2 November 2026; saham tetap diperdagangkan.",
+    filter: "HSC",
+    filterAll: "Semua saham",
+    filterExclude: "Sembunyikan HSC",
+    filterOnly: "Hanya HSC",
+  },
   dashboard: {
     openIhsg: "Buka grafik IHSG →",
     seeAll: "Lihat semua →",
@@ -301,6 +311,7 @@ export const id: Dictionary = {
       `Harga ${f.fraction(n(v.gap))} di atas modal rata-rata pembeli utama (${f.price(n(v.averagePrice))}): mereka mungkin ambil untung`,
     RADAR_BELOW_BUYERS_COST: (v, f) =>
       `Harga ${f.fraction(Math.abs(n(v.gap)))} di bawah modal rata-rata pembeli utama (${f.price(n(v.averagePrice))})`,
+    HSC: () => "Masuk daftar High Shareholding Concentration BEI: segelintir pemegang memiliki hampir semua saham",
     LOW_LIQUIDITY: (v, f) =>
       `Likuiditas rendah: rata-rata transaksi ${f.rupiah(n(v.avgValue))} per hari (minimal ${f.rupiah(n(v.minValue))})`,
     NEAR_LIMIT_UP: (v, f) =>

@@ -14,6 +14,7 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 
 import java.sql.Date;
 import java.time.LocalDate;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -35,6 +36,9 @@ class DatabaseProvidersTests extends EmbeddedPostgresTest {
 
     @Autowired
     private JdbcClient jdbc;
+
+    @Autowired
+    private org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
 
     @BeforeEach
     void setUp() {
@@ -89,6 +93,29 @@ class DatabaseProvidersTests extends EmbeddedPostgresTest {
 
         assertThat(overview.topGainers()).extracting(StockQuote::ticker).doesNotContain("UNVR").contains("BBCA");
         assertThat(overview.advancers()).isEqualTo(2);
+    }
+
+    @Test
+    void hscStocksAreFlaggedFilterableAndTheListCanBeReplaced() {
+        // BREN is in the seeded watchlist and on the HSC list from migration V9.
+        assertThat(market.quote("BREN").orElseThrow().hsc()).isTrue();
+        assertThat(market.quote("BBCA").orElseThrow().hsc()).isFalse();
+        assertThat(marketService.list(null, null, null, "only", "ticker", true, 1, 200).stocks())
+                .extracting(StockQuote::ticker).contains("BREN").doesNotContain("BBCA");
+
+        var admin = new com.idxintelligence.backend.ingest.AdminHscController(
+                new com.idxintelligence.backend.ingest.AdminAuth("token"), jdbc, jdbcTemplate);
+        try {
+            var result = admin.replace("token", new com.idxintelligence.backend.ingest.AdminHscController.HscList(
+                    LocalDate.of(2026, 11, 2), "test", List.of("bbca", "ZZZZ")));
+            assertThat(result.stocks()).isEqualTo(2);
+            assertThat(market.quote("BBCA").orElseThrow().hsc()).isTrue();
+            assertThat(market.quote("BREN").orElseThrow().hsc()).isFalse(); // removed by the new list
+        } finally {
+            // Put the seeded list back for other tests sharing this database.
+            jdbc.sql("DELETE FROM hsc_stock").update();
+            jdbc.sql("INSERT INTO hsc_stock (ticker, as_of, source) VALUES ('BREN', DATE '2026-10-12', 'test reset')").update();
+        }
     }
 
     @Test

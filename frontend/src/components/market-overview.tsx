@@ -12,6 +12,7 @@ import { getI18n } from "@/lib/i18n";
 import type { Dictionary } from "@/lib/i18n/en";
 import type { Locale } from "@/lib/i18n/locales";
 import { DemoBanner } from "./demo-banner";
+import { HscBadge } from "./hsc-badge";
 import { Sparkline } from "./sparkline";
 
 export const MOVER_TABS = ["gainers", "losers", "active"] as const;
@@ -160,6 +161,7 @@ function Movers({
                 <td className="max-w-56 px-4 py-2">
                   <Link href={`/${locale}/stocks/${s.ticker}`} className="group block">
                     <span className="font-mono font-semibold group-hover:text-accent group-hover:underline">{s.ticker}</span>
+                    {s.hsc && <HscBadge label={t.hsc.badge} title={t.hsc.title} />}
                     <span className="block truncate text-xs text-faint">{s.name}</span>
                   </Link>
                 </td>
