@@ -36,6 +36,8 @@ class MarketControllerTests {
                 .andExpect(jsonPath("$.mostActive[0].ticker").value("BBCA"))
                 .andExpect(jsonPath("$.advancers").value(6))
                 .andExpect(jsonPath("$.decliners").value(4))
-                .andExpect(jsonPath("$.unchanged").value(1));
+                .andExpect(jsonPath("$.unchanged").value(1))
+                .andExpect(jsonPath("$.sparklines.BBCA.length()").value(20))
+                .andExpect(jsonPath("$.sparklines.BBCA[19]").value(9850));
     }
 }

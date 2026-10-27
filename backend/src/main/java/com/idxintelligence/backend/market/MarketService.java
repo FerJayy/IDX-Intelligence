@@ -11,6 +11,7 @@ import java.time.ZoneId;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
 
@@ -20,7 +21,8 @@ public class MarketService {
     public static final ZoneId JAKARTA = ZoneId.of("Asia/Jakarta");
     public static final String DEMO_NOTICE = "DEMO DATA — NOT LIVE MARKET DATA";
 
-    private static final int LIST_SIZE = 5;
+    private static final int LIST_SIZE = 10;
+    private static final int SPARKLINE_DAYS = 20;
     /** Minimum traded value (IDR) for a stock to count as a top gainer or loser. */
     static final BigDecimal MIN_MOVER_VALUE = new BigDecimal("1000000000");
     static final int MAX_PAGE_SIZE = 200;
@@ -55,6 +57,10 @@ public class MarketService {
                 .limit(LIST_SIZE)
                 .toList();
 
+        List<String> shown = java.util.stream.Stream.of(gainers, losers, mostActive)
+                .flatMap(List::stream).map(StockQuote::ticker).distinct().toList();
+        Map<String, List<BigDecimal>> sparklines = provider.recentCloses(shown, SPARKLINE_DAYS);
+
         int advancers = countBySign(quotes, 1);
         int decliners = countBySign(quotes, -1);
         int unchanged = countBySign(quotes, 0);
@@ -71,7 +77,8 @@ public class MarketService {
                 unchanged,
                 gainers,
                 losers,
-                mostActive
+                mostActive,
+                sparklines
         );
     }
 
@@ -80,6 +87,11 @@ public class MarketService {
      * Missing values always sort last, whatever the direction.
      */
     public StockList list(String search, String sector, String sort, boolean ascending, int page, int size) {
+        return list(search, sector, null, sort, ascending, page, size);
+    }
+
+    /** @param change "up", "down" or "flat" to keep only stocks that moved that way on the latest day */
+    public StockList list(String search, String sector, String change, String sort, boolean ascending, int page, int size) {
         List<StockQuote> quotes = provider.quotes();
         List<String> sectors = quotes.stream().map(StockQuote::sector).filter(Objects::nonNull)
                 .distinct().sorted().toList();
@@ -90,6 +102,7 @@ public class MarketService {
                         || q.ticker().toLowerCase(Locale.ROOT).contains(needle)
                         || (q.name() != null && q.name().toLowerCase(Locale.ROOT).contains(needle)))
                 .filter(q -> sector == null || sector.isBlank() || sector.equals(q.sector()))
+                .filter(q -> change == null || change.isBlank() || matchesChange(q, change))
                 .sorted(comparator(sort, ascending))
                 .toList();
 
@@ -118,6 +131,16 @@ public class MarketService {
         };
         Comparator<BigDecimal> direction = ascending ? Comparator.naturalOrder() : Comparator.reverseOrder();
         return Comparator.comparing(key, Comparator.nullsLast(direction)).thenComparing(StockQuote::ticker);
+    }
+
+    private static boolean matchesChange(StockQuote q, String change) {
+        if (q.change() == null) return false;
+        return switch (change) {
+            case "up" -> q.change().signum() > 0;
+            case "down" -> q.change().signum() < 0;
+            case "flat" -> q.change().signum() == 0;
+            default -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "change must be up, down or flat");
+        };
     }
 
     private static boolean liquidEnough(StockQuote q) {

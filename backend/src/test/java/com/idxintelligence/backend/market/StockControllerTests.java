@@ -14,7 +14,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(controllers = StockController.class, properties = "app.data-source=demo")
-@Import({MarketService.class, MockMarketDataProvider.class})
+@Import({MarketService.class, MockMarketDataProvider.class, CandleService.class, IndexController.class,
+        StockControllerTests.TestBeans.class})
 class StockControllerTests {
 
     @Autowired
@@ -40,6 +41,49 @@ class StockControllerTests {
                 .andExpect(jsonPath("$.stocks.length()").value(1))
                 .andExpect(jsonPath("$.stocks[0].ticker").value("PGAS"));
         mockMvc.perform(get("/api/stocks?sort=nonsense")).andExpect(status().isBadRequest());
+    }
+
+    @org.springframework.boot.test.context.TestConfiguration
+    static class TestBeans {
+        @org.springframework.context.annotation.Bean
+        java.time.Clock clock() {
+            return java.time.Clock.systemUTC();
+        }
+
+        @org.springframework.context.annotation.Bean
+        com.idxintelligence.backend.ingest.YahooFinanceClient yahoo() {
+            return org.mockito.Mockito.mock(com.idxintelligence.backend.ingest.YahooFinanceClient.class);
+        }
+    }
+
+    @Test
+    void candlesForDailyAndLongerIntervals() throws Exception {
+        mockMvc.perform(get("/api/stocks/BBCA/candles?interval=1d&range=1M"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.interval").value("1d"))
+                .andExpect(jsonPath("$.range").value("1M"))
+                .andExpect(jsonPath("$.intraday").value(false))
+                .andExpect(jsonPath("$.candles[-1].close").value(9850));
+        mockMvc.perform(get("/api/stocks/BBCA/candles?interval=1mo"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.range").value("MAX"));
+        mockMvc.perform(get("/api/stocks/BBCA/candles?interval=2h")).andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void demoModeHasNoIntradayCandles() throws Exception {
+        mockMvc.perform(get("/api/stocks/BBCA/candles?interval=1h"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.intraday").value(true))
+                .andExpect(jsonPath("$.candles.length()").value(0));
+    }
+
+    @Test
+    void stockListFiltersByDirection() throws Exception {
+        mockMvc.perform(get("/api/stocks?change=flat"))
+                .andExpect(jsonPath("$.total").value(1))
+                .andExpect(jsonPath("$.stocks[0].ticker").value("UNVR"));
+        mockMvc.perform(get("/api/stocks?change=sideways")).andExpect(status().isBadRequest());
     }
 
     @Test

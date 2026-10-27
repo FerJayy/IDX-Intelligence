@@ -57,6 +57,42 @@ public class YahooFinanceClient {
         return toBars(response.chart().result().getFirst());
     }
 
+    /**
+     * Intraday candles ({@code interval} = "15m" or "60m") since {@code from}. Times are the candle
+     * start as epoch seconds; the latest candle may still be forming. Yahoo keeps ~60 days of 15m
+     * and ~2 years of 60m history.
+     */
+    public List<IntradayBar> intradayBars(String symbol, String interval, Instant from) {
+        ChartResponse response = http.get()
+                .uri("/v8/finance/chart/{symbol}?period1={p1}&period2={p2}&interval={interval}",
+                        symbol, from.getEpochSecond(), Instant.now().getEpochSecond(), interval)
+                .retrieve()
+                .body(ChartResponse.class);
+        if (response == null || response.chart() == null || response.chart().result() == null
+                || response.chart().result().isEmpty()) {
+            throw new IllegalStateException("Yahoo returned no intraday data for " + symbol);
+        }
+        Result result = response.chart().result().getFirst();
+        List<Long> timestamps = result.timestamp();
+        if (timestamps == null || result.indicators() == null || result.indicators().quote() == null) {
+            return List.of();
+        }
+        Quote quote = result.indicators().quote().getFirst();
+        List<IntradayBar> bars = new ArrayList<>(timestamps.size());
+        for (int i = 0; i < timestamps.size(); i++) {
+            BigDecimal close = at(quote.close(), i);
+            if (close == null) continue;
+            bars.add(new IntradayBar(timestamps.get(i), price(at(quote.open(), i)), price(at(quote.high(), i)),
+                    price(at(quote.low(), i)), price(close), at(quote.volume(), i)));
+        }
+        return bars;
+    }
+
+    /** One intraday candle; {@code time} is epoch seconds (UTC) of the candle start. */
+    public record IntradayBar(long time, BigDecimal open, BigDecimal high, BigDecimal low,
+                              BigDecimal close, Long volume) {
+    }
+
     private static List<DailyBar> toBars(Result result) {
         List<Long> timestamps = result.timestamp();
         if (timestamps == null || result.indicators() == null || result.indicators().quote() == null) {

@@ -11,20 +11,31 @@ import org.springframework.web.bind.annotation.RestController;
 public class StockController {
 
     private final MarketService marketService;
+    private final CandleService candles;
 
-    public StockController(MarketService marketService) {
+    public StockController(MarketService marketService, CandleService candles) {
         this.marketService = marketService;
+        this.candles = candles;
+    }
+
+    /** Chart candles: interval 15m|1h|4h|1d|1w|1mo; range must suit the interval, else its default is used. */
+    @GetMapping("/{ticker}/candles")
+    public CandleSeries candles(@PathVariable String ticker,
+                                @RequestParam(defaultValue = "1d") String interval,
+                                @RequestParam(required = false) String range) {
+        return candles.stock(ticker, ChartInterval.fromCode(interval), range);
     }
 
     /** All stocks, searchable by code or name, filterable by sector, sortable; default: biggest first. */
     @GetMapping
     public StockList list(@RequestParam(required = false) String search,
                           @RequestParam(required = false) String sector,
+                          @RequestParam(required = false) String change,
                           @RequestParam(defaultValue = "marketCap") String sort,
                           @RequestParam(defaultValue = "desc") String order,
                           @RequestParam(defaultValue = "1") int page,
                           @RequestParam(defaultValue = "50") int size) {
-        return marketService.list(search, sector, sort, "asc".equalsIgnoreCase(order), page, size);
+        return marketService.list(search, sector, change, sort, "asc".equalsIgnoreCase(order), page, size);
     }
 
     @GetMapping("/{ticker}")
