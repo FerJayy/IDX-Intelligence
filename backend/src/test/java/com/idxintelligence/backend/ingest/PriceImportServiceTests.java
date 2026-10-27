@@ -18,6 +18,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -42,6 +43,7 @@ class PriceImportServiceTests extends EmbeddedPostgresTest {
     void clean() {
         jdbc.sql("DELETE FROM daily_price").update();
         jdbc.sql("DELETE FROM import_run").update();
+        jdbc.sql("UPDATE stock SET price_missing_since = NULL").update();
     }
 
     @Test
@@ -87,6 +89,24 @@ class PriceImportServiceTests extends EmbeddedPostgresTest {
         assertThat(countRows("BBCA")).isEqualTo(1);
         String message = jdbc.sql("SELECT message FROM import_run").query(String.class).single();
         assertThat(message).contains("GOTO");
+    }
+
+    @Test
+    void stocksYahooDoesNotKnowAreSkippedDailyAndRetriedWeekly() {
+        when(yahoo.dailyBars(anyString(), any(), any())).thenReturn(List.of(bar(FRIDAY, "5025", 100L)));
+        when(yahoo.dailyBars(eq("GOTO"), any(), any())).thenThrow(org.springframework.web.client.HttpClientErrorException.create(
+                org.springframework.http.HttpStatus.NOT_FOUND, "Not Found", null, null, null));
+
+        PriceImportService.ImportResult first = service(DURING_TRADING).importAll();
+        PriceImportService.ImportResult nextDay = service(DURING_TRADING.plusDays(1)).importAll();
+        PriceImportService.ImportResult weekLater = service(DURING_TRADING.plusDays(7)).importAll();
+
+        assertThat(first.stocksNotFound()).isEqualTo(1);
+        assertThat(first.stocksFailed()).isZero();            // not counted as a failure
+        assertThat(nextDay.stocksSkipped()).isEqualTo(1);     // GOTO not asked again the next day
+        assertThat(weekLater.stocksSkipped()).isZero();       // retried a week later
+        assertThat(weekLater.stocksNotFound()).isEqualTo(1);
+        verify(yahoo, times(2)).dailyBars(eq("GOTO"), any(), any());
     }
 
     private PriceImportService service(ZonedDateTime now) {

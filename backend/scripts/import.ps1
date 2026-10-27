@@ -51,6 +51,10 @@ try {
             if ($r.alreadyRunning) { Write-Host "An import is already running. Try again when it finishes."; exit 0 }
             Write-Host ("Done: {0}/{1} stocks OK, {2} failed, {3} rows written, checked through {4}." -f `
                 $r.stocksOk, $r.stocks, $r.stocksFailed, $r.rowsWritten, $r.upToDate)
+            if ($r.stocksNotFound -or $r.stocksSkipped) {
+                Write-Host ("Yahoo has no data for {0} stock(s) (retried weekly); {1} skipped today for that reason." -f `
+                    $r.stocksNotFound, $r.stocksSkipped)
+            }
             foreach ($failure in $r.failures) { Write-Warning $failure }
         }
         "brokers" {

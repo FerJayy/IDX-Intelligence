@@ -27,6 +27,34 @@ public class PriceRepository {
         return jdbc.sql("SELECT ticker FROM stock WHERE active ORDER BY ticker").query(String.class).list();
     }
 
+    /**
+     * Active stocks to import on {@code today}: those Yahoo had no data for are only retried once a
+     * week after they went missing, so they don't fail every day.
+     */
+    public List<String> importableTickers(LocalDate today) {
+        return jdbc.sql("""
+                SELECT ticker FROM stock
+                WHERE active AND (price_missing_since IS NULL OR (? - price_missing_since) % 7 = 0)
+                ORDER BY ticker
+                """)
+                .param(Date.valueOf(today))
+                .query(String.class)
+                .list();
+    }
+
+    /** Remembers the first day Yahoo had no data for this stock (kept if already set). */
+    public void markPriceMissing(String ticker, LocalDate today) {
+        jdbc.sql("UPDATE stock SET price_missing_since = coalesce(price_missing_since, ?) WHERE ticker = ?")
+                .params(Date.valueOf(today), ticker)
+                .update();
+    }
+
+    public void clearPriceMissing(String ticker) {
+        jdbc.sql("UPDATE stock SET price_missing_since = NULL WHERE ticker = ? AND price_missing_since IS NOT NULL")
+                .param(ticker)
+                .update();
+    }
+
     /** Most recent stored trading day for {@code ticker}, or null if none yet. */
     public LocalDate latestTradeDate(String ticker) {
         return jdbc.sql("SELECT max(trade_date) FROM daily_price WHERE ticker = ?")

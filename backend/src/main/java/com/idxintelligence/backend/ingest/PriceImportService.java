@@ -79,7 +79,11 @@ public class PriceImportService {
         int ok = 0;
         int rows = 0;
         List<String> failures = new ArrayList<>();
-        List<String> tickers = repository.trackedTickers();
+        LocalDate today = now.toLocalDate();
+        int skippedMissing = repository.trackedTickers().size();
+        List<String> tickers = repository.importableTickers(today);
+        skippedMissing -= tickers.size();
+        int notFound = 0;
         for (String ticker : tickers) {
             try {
                 LocalDate latest = repository.latestTradeDate(ticker);
@@ -92,7 +96,12 @@ public class PriceImportService {
                         .filter(bar -> bar.volume() == null || bar.volume() > 0)
                         .toList();
                 rows += repository.upsert(ticker, bars, SOURCE);
+                repository.clearPriceMissing(ticker);
                 ok++;
+            } catch (org.springframework.web.client.HttpClientErrorException.NotFound e) {
+                // Yahoo has no such symbol (often long-suspended or delisted): retry weekly, not daily.
+                repository.markPriceMissing(ticker, today);
+                notFound++;
             } catch (RuntimeException e) {
                 log.warn("Price import failed for {}: {}", ticker, e.getMessage());
                 failures.add(ticker + ": " + e.getMessage());
@@ -120,7 +129,7 @@ public class PriceImportService {
 
         String message = failures.isEmpty() ? null : String.join("\n", failures);
         repository.finishRun(runId, clock.instant(), ok, failures.size(), rows, message);
-        return new ImportResult(false, tickers.size(), ok, failures.size(), rows, lastFinalDay, failures);
+        return new ImportResult(false, tickers.size(), ok, failures.size(), notFound, skippedMissing, rows, lastFinalDay, failures);
     }
 
     // Yahoo occasionally answers 429 when asked for many stocks in a row: wait and try again.
@@ -151,10 +160,15 @@ public class PriceImportService {
         }
     }
 
+    /**
+     * @param stocksNotFound Yahoo had no data (marked; retried weekly)
+     * @param stocksSkipped  skipped today because they were not found recently
+     */
     public record ImportResult(boolean alreadyRunning, int stocks, int stocksOk, int stocksFailed,
+                               int stocksNotFound, int stocksSkipped,
                                int rowsWritten, LocalDate upToDate, List<String> failures) {
         static ImportResult skippedBecauseRunning() {
-            return new ImportResult(true, 0, 0, 0, 0, null, List.of());
+            return new ImportResult(true, 0, 0, 0, 0, 0, 0, null, List.of());
         }
     }
 }
