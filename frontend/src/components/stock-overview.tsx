@@ -16,6 +16,7 @@ import { getI18n } from "@/lib/i18n";
 import { BrokerActivity } from "./broker-activity";
 import { ChartControls } from "./chart-controls";
 import { DemoBanner } from "./demo-banner";
+import { LivePrice } from "./live-price";
 import { PriceChart } from "./price-chart";
 
 export async function StockOverview({
@@ -84,6 +85,8 @@ export async function StockOverview({
           {quote.tradeDate && <p className="text-xs text-faint">{t.stock.closeOf(f.tradingDate(quote.tradeDate))}</p>}
         </div>
       </header>
+
+      {!stock.demo && <LivePrice ticker={quote.ticker} locale={locale} labels={t.live} />}
 
       <section className="space-y-4 rounded-xl border border-line bg-card p-4">
         <ChartControls

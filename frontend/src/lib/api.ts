@@ -229,6 +229,39 @@ export async function trackStock(ticker: string): Promise<TrackOutcome> {
   return result.outcome === "TRACKED" && !result.loadingNow ? "QUEUED" : result.outcome;
 }
 
+/** Real-time quote from IDX's running trade (via IDX Edge), during market hours only. */
+export type LiveQuote = {
+  code: string;
+  lastPrice: number | null;
+  change: number | null;
+  changePercent: number | null;
+  lot: number | null; // lots traded today
+  value: number | null; // IDR traded today
+  frequency: number | null;
+  vwap: number | null;
+  dataTime: string | null; // "HH:mm:ss" WIB
+  marketState: string | null;
+  marketLabel: string | null; // provider's session label, Indonesian
+  noTradeToday: boolean | null;
+};
+
+export type LiveStatus = "LIVE" | "MARKET_CLOSED" | "BUDGET_USED" | "UNAVAILABLE";
+
+export type LiveResult = {
+  status: LiveStatus;
+  quote: LiveQuote | null;
+  fetchedAt: string | null;
+  budgetLeft: number;
+};
+
+export async function getLivePrice(ticker: string): Promise<LiveResult> {
+  const response = await fetch(`${API_BASE_URL}/api/stocks/${encodeURIComponent(ticker)}/live`);
+  if (!response.ok) {
+    throw new Error(`Live price request failed: ${response.status}`);
+  }
+  return response.json();
+}
+
 export async function getMarketOverview(): Promise<MarketOverview> {
   const response = await fetch(`${API_BASE_URL}/api/market/overview`);
   if (!response.ok) {

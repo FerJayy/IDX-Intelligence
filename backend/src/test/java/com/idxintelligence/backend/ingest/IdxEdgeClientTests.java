@@ -89,6 +89,23 @@ class IdxEdgeClientTests {
     }
 
     @Test
+    void readsLiveQuotesFromSnakeCase() {
+        server.expect(requestTo("http://edge.test/api/price/BBCA"))
+                .andRespond(withSuccess("""
+                        {"code":"BBCA","last_price":4890,"freq":79290,"lot":3118090,"value":1529921618590,"vwap":4906.6,
+                         "change":-50,"change_pct":-1.02,"data_ts":"15:42:28","market_state":"open",
+                         "market_label":"Sesi 2 berlangsung (13:30-15:50 WIB)","no_trade_today":false}
+                        """, MediaType.APPLICATION_JSON));
+
+        IdxEdgeClient.LiveQuote quote = client.livePrice("BBCA");
+
+        assertThat(quote.lastPrice()).isEqualByComparingTo("4890");
+        assertThat(quote.changePercent()).isEqualByComparingTo("-1.02");
+        assertThat(quote.dataTime()).isEqualTo("15:42:28");
+        assertThat(quote.noTradeToday()).isFalse();
+    }
+
+    @Test
     void notConfiguredWithoutKey() {
         assertThat(new IdxEdgeClient(RestClient.builder(), "http://edge.test", " ").isConfigured()).isFalse();
     }

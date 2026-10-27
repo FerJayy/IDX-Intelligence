@@ -4,6 +4,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.task.TaskExecutor;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -23,13 +24,22 @@ public class TrackingController {
     private final BrokerTrackingService tracking;
     private final BrokerImportService brokerImport;
     private final TaskExecutor executor;
+    private final LivePriceService livePrices;
 
     // Spring Boot's general-purpose pool; the scheduler's own executor is also a TaskExecutor, hence the name.
     public TrackingController(BrokerTrackingService tracking, BrokerImportService brokerImport,
-                              @Qualifier("applicationTaskExecutor") TaskExecutor executor) {
+                              @Qualifier("applicationTaskExecutor") TaskExecutor executor,
+                              LivePriceService livePrices) {
         this.tracking = tracking;
         this.brokerImport = brokerImport;
         this.executor = executor;
+        this.livePrices = livePrices;
+    }
+
+    /** Real-time price during market hours; capped and cached by LivePriceService. */
+    @GetMapping("/api/stocks/{ticker}/live")
+    public LivePriceService.LiveResult live(@PathVariable String ticker) {
+        return livePrices.quote(ticker);
     }
 
     /** @param loadingNow false when today's free quota is spent: the data loads after 00:00 WIB instead */

@@ -1,5 +1,6 @@
 package com.idxintelligence.backend.ingest;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import org.springframework.beans.factory.annotation.Value;
@@ -67,6 +68,48 @@ public class IdxEdgeClient {
         SummaryResponse body = response.getBody();
         List<BrokerRow> brokers = body == null || body.brokers() == null ? List.of() : body.brokers();
         return new BrokerDay(brokers, parseRemaining(response.getHeaders().getFirst("x-ratelimit-remaining")));
+    }
+
+    /** Real-time quote from IDX's running trade (today's aggregate so far). Costs one request. */
+    public LiveQuote livePrice(String ticker) {
+        LiveQuote body = http.get()
+                .uri("/api/price/{code}", ticker)
+                .header("X-API-Key", apiKey)
+                .retrieve()
+                .onStatus(status -> status.value() == 429, (request, resp) -> {
+                    throw new QuotaExhaustedException();
+                })
+                .onStatus(HttpStatusCode::isError, (request, resp) -> {
+                    throw new IllegalStateException("IDX Edge returned HTTP " + resp.getStatusCode().value());
+                })
+                .body(LiveQuote.class);
+        if (body == null) {
+            throw new IllegalStateException("IDX Edge returned an empty quote for " + ticker);
+        }
+        return body;
+    }
+
+    /**
+     * @param lot          lots traded today (1 lot = 100 shares)
+     * @param dataTime     time of the data, "HH:mm:ss" WIB
+     * @param marketState  e.g. "open"
+     * @param marketLabel  e.g. "Sesi 2 berlangsung (13:30-15:50 WIB)"
+     * @param noTradeToday true when the stock hasn't traded today (price is then the last close)
+     */
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record LiveQuote(
+            @JsonAlias("code") String code,
+            @JsonAlias("last_price") BigDecimal lastPrice,
+            @JsonAlias("change") BigDecimal change,
+            @JsonAlias("change_pct") BigDecimal changePercent,
+            @JsonAlias("lot") BigDecimal lot,
+            @JsonAlias("value") BigDecimal value,
+            @JsonAlias("freq") Long frequency,
+            @JsonAlias("vwap") BigDecimal vwap,
+            @JsonAlias("data_ts") String dataTime,
+            @JsonAlias("market_state") String marketState,
+            @JsonAlias("market_label") String marketLabel,
+            @JsonAlias("no_trade_today") Boolean noTradeToday) {
     }
 
     /** IDX Edge's market-wide screener result for the latest trading day. Costs one request. */
