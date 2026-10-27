@@ -1,0 +1,64 @@
+# Runs the data imports on the hosted backend. The free Render instance sleeps when idle,
+# so it can't run its own schedule; each call here wakes it and keeps it busy until the import ends.
+# Needs repository secrets BACKEND_URL (e.g. https://idx-intelligence-api.onrender.com) and ADMIN_TOKEN.
+# GitHub cron is UTC (WIB - 7 h) and often starts a few minutes late.
+name: Data imports
+
+on:
+  schedule:
+    - cron: "0 10 * * 1-5"   # 17:00 WIB weekdays: Yahoo daily prices
+    - cron: "15 12 * * 1-5"  # 19:15 WIB weekdays: IDX Edge screener picks
+    - cron: "30 12 * * *"    # 19:30 WIB: broker summaries
+    - cron: "30 17 * * *"    # 00:30 WIB: broker summaries (late-published days, refreshed quota)
+    - cron: "0 2 * * 0"      # 09:00 WIB Sunday: IDX stock list
+  workflow_dispatch:
+    inputs:
+      job:
+        description: Import to run
+        type: choice
+        options: [prices, screener, brokers, stocks]
+        default: prices
+
+concurrency:
+  group: imports
+  cancel-in-progress: false
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Pick the import
+        id: pick
+        env:
+          SCHEDULE: ${{ github.event.schedule }}
+          INPUT_JOB: ${{ inputs.job }}
+        run: |
+          case "$SCHEDULE" in
+            "0 10 * * 1-5")  job=prices ;;
+            "15 12 * * 1-5") job=screener ;;
+            "30 12 * * *"|"30 17 * * *") job=brokers ;;
+            "0 2 * * 0")     job=stocks ;;
+            *)               job="$INPUT_JOB" ;;
+          esac
+          echo "job=$job" >> "$GITHUB_OUTPUT"
+          echo "Running: $job"
+
+      - name: Wake the backend
+        env:
+          BACKEND_URL: ${{ secrets.BACKEND_URL }}
+        run: |
+          for i in $(seq 1 20); do
+            if curl -fsS --max-time 30 "$BACKEND_URL/api/health"; then echo; exit 0; fi
+            echo "Not up yet ($i), waiting..."; sleep 15
+          done
+          echo "Backend did not wake up"; exit 1
+
+      - name: Run the import
+        env:
+          BACKEND_URL: ${{ secrets.BACKEND_URL }}
+          ADMIN_TOKEN: ${{ secrets.ADMIN_TOKEN }}
+          JOB: ${{ steps.pick.outputs.job }}
+        run: |
+          curl -fsS --max-time 6000 -X POST -H "X-Admin-Token: $ADMIN_TOKEN" "$BACKEND_URL/api/admin/import/$JOB"
+          echo

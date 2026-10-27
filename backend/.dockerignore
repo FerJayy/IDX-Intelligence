@@ -1,0 +1,7 @@
+# Never copy secrets or local build output into the image.
+.env
+.env.*
+target/
+scripts/
+*.log
+HELP.md

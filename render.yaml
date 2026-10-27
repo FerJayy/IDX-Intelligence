@@ -1,0 +1,38 @@
+# Render Blueprint for the backend (free plan, Singapore = same region as Neon).
+# Secrets are marked sync: false: Render asks for them when the Blueprint is created; they never live in git.
+services:
+  - type: web
+    name: idx-intelligence-api
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    healthCheckPath: /api/health
+    autoDeploy: true
+    buildFilter:
+      paths:
+        - backend/**
+    envVars:
+      - key: DB_URL
+        sync: false
+      - key: DB_USERNAME
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: ADMIN_TOKEN
+        sync: false
+      - key: IDX_EDGE_API_KEY
+        sync: false
+      # A free instance sleeps when idle, so its own @Scheduled jobs can't be relied on.
+      # GitHub Actions (.github/workflows/imports.yml) triggers the imports instead.
+      - key: IMPORT_PRICES_CRON
+        value: "-"
+      - key: IMPORT_BROKERS_CRON
+        value: "-"
+      - key: IMPORT_BROKERS_MORNING_CRON
+        value: "-"
+      - key: IMPORT_STOCKS_CRON
+        value: "-"
+      - key: IMPORT_SCREENER_CRON
+        value: "-"
