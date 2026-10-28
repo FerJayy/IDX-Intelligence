@@ -541,14 +541,28 @@ async function TrackRecordSection({ window }: { window: RadarWindow }) {
         </p>
       </div>
 
-      {record.signalDays < MIN_SIGNAL_DAYS && (
-        <p className="rounded-lg border border-warn-line bg-warn-bg px-4 py-2 text-sm text-warn-fg">{r.tooLittle(record.signalDays)}</p>
-      )}
       {top != null && all != null && (
-        <p className="text-sm">
-          {r.summary(f.signedFraction(top), f.signedFraction(all))} {top > all ? r.better : r.worse}
-        </p>
+        <div className="rounded-xl border border-line bg-card p-4">
+          <h3 className="text-sm font-semibold uppercase tracking-wide text-muted">{r.inShortTitle}</h3>
+          <p className="mt-2 text-base leading-relaxed">
+            {r.inShort(record.topPicks, f.signedFraction(top), f.signedFraction(all))}
+          </p>
+          <p className={`mt-2 text-base font-semibold ${top > all ? "text-up" : "text-down"}`}>
+            {top > all ? r.verdictBetter : r.verdictWorse}
+          </p>
+          {record.signalDays < MIN_SIGNAL_DAYS && <p className="mt-2 text-sm text-warn-fg">{r.tooLittle(record.signalDays)}</p>}
+        </div>
       )}
+
+      <details className="rounded-xl border border-line bg-card p-4 text-sm" open>
+        <summary className="cursor-pointer font-semibold">{r.stepsTitle}</summary>
+        <ol className="mt-2 list-decimal space-y-1 pl-5 text-muted">
+          {r.steps.map((step) => (
+            <li key={step}>{step}</li>
+          ))}
+        </ol>
+        <p className="mt-2 rounded-lg bg-chip px-3 py-2 text-muted">{r.example}</p>
+      </details>
 
       <div className="overflow-x-auto rounded-xl border border-line bg-card">
         <table className="w-full text-sm tabular-nums">
@@ -566,7 +580,10 @@ async function TrackRecordSection({ window }: { window: RadarWindow }) {
           <tbody>
             {record.groups.map((g) => (
               <tr key={g.group} className={`border-t border-line ${g.group === "ALL" ? "bg-card-strong" : ""}`}>
-                <td className="px-3 py-2 font-medium">{label(g.group)}</td>
+                <td className="px-3 py-2 align-top">
+                  <span className="font-medium">{label(g.group)}</span>
+                  <span className="mt-0.5 block max-w-64 text-xs text-faint">{r.groupHelp[g.group]}</span>
+                </td>
                 {g.horizons.map((h) => (
                   <td key={h.days} className="px-3 py-2 text-right align-top">
                     <span className={`font-semibold ${changeColor(h.averageExcess)}`}>{f.signedFraction(h.averageExcess)}</span>
@@ -579,6 +596,8 @@ async function TrackRecordSection({ window }: { window: RadarWindow }) {
           </tbody>
         </table>
       </div>
+
+      <p className="text-xs text-faint">{r.columnsHelp}</p>
 
       <details className="rounded-xl border border-line bg-card p-4 text-sm">
         <summary className="cursor-pointer font-semibold">{r.howTitle}</summary>

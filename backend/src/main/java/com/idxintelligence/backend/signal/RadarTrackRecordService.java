@@ -167,7 +167,7 @@ public class RadarTrackRecordService {
     }
 
     /** Buy at the next open, sell at the close h days after the signal; NaN where unknown. */
-    private static double[] outcome(List<Bar> bars, int signal, Map<LocalDate, double[]> index, boolean excess) {
+    static double[] outcome(List<Bar> bars, int signal, Map<LocalDate, double[]> index, boolean excess) {
         double[] out = new double[HORIZONS.length];
         Bar entry = bars.get(signal + 1);
         for (int h = 0; h < HORIZONS.length; h++) {

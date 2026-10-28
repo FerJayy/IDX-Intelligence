@@ -5,6 +5,7 @@ export type ReasonValues = Record<string, unknown>;
 type ReasonText = (v: ReasonValues, f: Format) => string;
 
 const n = (v: unknown) => (typeof v === "number" ? v : Number(v));
+const flowWord = (v: unknown) => ({ ACCUMULATION: "collecting", NEUTRAL: "balanced", DISTRIBUTION: "selling" } as Record<string, string>)[String(v)] ?? String(v);
 
 export const en = {
   meta: {
@@ -31,6 +32,7 @@ export const en = {
     stocks: "Stocks",
     ihsg: "IHSG",
     radar: "Broker Radar",
+    shortlist: "Worth a look",
     brokers: "Brokers",
     watchlist: "★ My list",
   },
@@ -130,6 +132,30 @@ export const en = {
       worse: "That is worse than the baseline: the score has not helped so far.",
       teaser: (top: string, days: number) => `Measured so far: top picks ${top} vs IHSG after 5 days (${days} days of history).`,
       teaserLink: "See the track record",
+      inShortTitle: "In short",
+      inShort: (n: number, top: string, all: string) =>
+        `If you had bought the Radar's top ${n} stocks every day and sold them 5 trading days later, each trade would on average have done ${top} compared with IHSG. Buying any of the tracked stocks instead would have done ${all}.`,
+      verdictBetter: "So far the Radar's picks did better than picking any tracked stock.",
+      verdictWorse: "So far the Radar's picks did worse than picking any tracked stock: the ranking hasn't helped yet.",
+      stepsTitle: "How this test works",
+      steps: [
+        "Every evening in the past, the Radar ranks the tracked stocks using only the broker data known that evening (nothing from later days).",
+        "The test \"buys\" the picked stocks at the next morning's opening price.",
+        "It \"sells\" them 1, 3 or 5 trading days later at the closing price and subtracts 0,4% for fees.",
+        "It compares that result with what IHSG did over exactly the same days. Above 0 means the stock beat the market.",
+      ],
+      example:
+        "Example: on 1 Oct evening the Radar ranked KLBF #1 → the test buys KLBF at the 2 Oct open → sells at the close 5 trading days later → if KLBF gained 3% while IHSG gained 1%, that trade counts as +2% vs IHSG (minus fees).",
+      groupHelp: {
+        TOP_PICKS: "The Radar's best-ranked stocks each day — what you'd get by following the ranking.",
+        HIGH_SCORE: "Every stock that scored 50 or more, any day.",
+        ACCUMULATION: "Days the stock's broker flow was rated Accumulation.",
+        NEUTRAL: "Days rated Neutral.",
+        DISTRIBUTION: "Days rated Distribution.",
+        ALL: "Every tracked stock, every day — the baseline. A useful signal must beat this row.",
+      } as Record<string, string>,
+      columnsHelp:
+        "Big number: average result vs IHSG (green = beat the market). \"made money\": share of trades that were positive after fees. \"trades\": how many were measured.",
       howTitle: "How to read this",
       how: [
         "“vs IHSG” is the average result minus what IHSG did over the same days: above 0 means the group beat the market.",
@@ -313,6 +339,39 @@ export const en = {
       EMAIL_FAILED: "The email couldn't be sent right now. Try again later.",
     } as Record<string, string>,
     genericError: "Something went wrong. Try again in a minute.",
+  },
+  shortlist: {
+    title: "Worth a look",
+    intro:
+      "Tracked stocks checked against 8 conditions that professional traders and research look at. The more checks a stock passes, the higher it ranks. Every check is shown, so you can see exactly why a stock is here — and what speaks against it.",
+    disclaimerTitle: "Not investment advice",
+    disclaimer:
+      "This is a research shortlist, not a recommendation to buy or sell. Passing all checks does not mean a stock will rise: markets surprise, and these checks describe the past. Always do your own research, only invest money you can afford to lose, and decide your exit (stop-loss) before you buy.",
+    methodTitle: "How a stock gets on this list",
+    groups: [
+      { name: "Trend", text: "Price above its 50-day average, which is above a rising 200-day average, and within 25% of its 52-week high. Professional swing traders (e.g. the \"trend template\" popularised by Mark Minervini) only look at stocks already in an uptrend." },
+      { name: "Strength", text: "Beat IHSG over the last 3 months. Stocks that outperformed for 3–12 months tend to keep doing so for a while — the \"momentum\" effect, documented in academic research since 1993 in many countries. It works over months, not days." },
+      { name: "Big money", text: "Big brokers collecting over the last 10 broker days and the last month, and foreign investors net buying (bandarmologi). Large players can't buy all at once, so their buying shows up over days." },
+      { name: "Risk", text: "Price at most 10% above what the main buyers paid (not stretched), at least Rp5 miliar traded per day (liquid), not on the HSC list and not already up more than 15% in 5 days (no chasing)." },
+    ],
+    scope: (tracked: number) =>
+      `Only the ${tracked} stocks with broker data can be checked; add a stock with “Load broker data” on its page.`,
+    passed: (n: number, total: number) => `${n} of ${total} checks`,
+    rank: (n: number) => `#${n}`,
+    othersTitle: (n: number) => `Other tracked stocks (${n})`,
+    measuredTitle: "Measured so far",
+    measured: (top: string, all: string, days: number) =>
+      `Buying the daily top 10 and holding them 5 trading days did ${top} vs IHSG; buying any tracked stock did ${all} (${days} days of history).`,
+    tooEarly: "Far too little history to tell whether the list helps. Treat it as a starting point for research, not a signal.",
+    groupsRecord: {
+      TOP_PICKS: "Daily top 10",
+      ALL_CHECKS: "Passed all checks",
+      ALMOST_ALL: "Passed all but one",
+      ALL: "All tracked stocks (baseline)",
+    } as Record<string, string>,
+    dataAsOf: (prices: string, brokers: string) => `Prices up to ${prices} · broker data up to ${brokers}`,
+    empty: "No tracked stocks with enough history yet.",
+    unavailable: "The shortlist is unavailable right now.",
   },
   dashboard: {
     openIhsg: "Open IHSG chart →",
@@ -564,6 +623,50 @@ export const en = {
     SUM_INSIDER_BUYING: (v) => `Insiders reported ${v.bought} purchase${n(v.bought) === 1 ? "" : "s"} in the last 30 days`,
     SUM_INSIDER_SELLING: (v) => `Insiders reported ${v.sold} sale${n(v.sold) === 1 ? "" : "s"} in the last 30 days`,
     SUM_HSC: () => "Watch out: on IDX's High Shareholding Concentration list — a few holders own almost all shares",
+    SL_LONG_TREND: (v, f) =>
+      v.pass
+        ? `Long-term uptrend: price above its 50-day average (${f.price(n(v.ma50))}), which is above a rising 200-day average (${f.price(n(v.ma200))})`
+        : v.ma200 == null
+          ? "Not enough price history for a 200-day average yet"
+          : `No long-term uptrend: price, 50-day (${f.price(n(v.ma50))}) and 200-day (${f.price(n(v.ma200))}) averages aren't lined up upwards`,
+    SL_NEAR_HIGH: (v, f) =>
+      v.fromHigh == null
+        ? "Not enough history for a 52-week high"
+        : v.pass
+          ? `Close to its 52-week high (${f.price(n(v.high))}): ${f.fraction(Math.abs(n(v.fromHigh)))} below it`
+          : `${f.fraction(Math.abs(n(v.fromHigh)))} below its 52-week high (${f.price(n(v.high))}) — far from its highs`,
+    SL_STRENGTH: (v, f) =>
+      v.excess3m == null
+        ? "Can't compare with IHSG yet"
+        : v.pass
+          ? `Stronger than the market: beat IHSG by ${f.fraction(n(v.excess3m))} over 3 months`
+          : `Weaker than the market: lagged IHSG by ${f.fraction(Math.abs(n(v.excess3m)))} over 3 months`,
+    SL_BROKERS: (v) =>
+      v.pass
+        ? "Big brokers have been collecting, both over the last 10 broker days and the last month"
+        : `Big brokers not collecting on both (10 days: ${flowWord(v.tenDays)}, 1 month: ${flowWord(v.month)})`,
+    SL_FOREIGN: (v, f) =>
+      v.value == null
+        ? "Not enough foreign-flow data for the last month"
+        : v.pass
+          ? `Foreign investors net bought ${f.rupiah(n(v.value))} over the last month`
+          : `Foreign investors net sold ${f.rupiah(Math.abs(n(v.value)))} over the last month`,
+    SL_NOT_STRETCHED: (v, f) =>
+      v.gap == null
+        ? "No buyers' cost to compare with"
+        : v.pass
+          ? `Not stretched: price ${f.signedFraction(n(v.gap))} vs what last month's main buyers paid (${f.price(n(v.averagePrice))})`
+          : `Stretched: price ${f.fraction(n(v.gap))} above what last month's main buyers paid (${f.price(n(v.averagePrice))}) — they may take profit`,
+    SL_LIQUID: (v, f) =>
+      v.pass
+        ? `Liquid: ${f.rupiah(n(v.avgValue))} traded per day on average`
+        : `Thinly traded: ${f.rupiah(n(v.avgValue))} per day (minimum ${f.rupiah(n(v.minValue))}) — hard to buy or sell without moving the price`,
+    SL_SAFE: (v, f) =>
+      v.pass
+        ? "Not on the HSC list and not already up more than 15% in 5 days"
+        : v.hsc
+          ? "On IDX's High Shareholding Concentration list — a few holders own almost all shares"
+          : `Already up ${f.signedFraction(n(v.change5d))} in 5 days — buying now would be chasing`,
   } satisfies Record<string, ReasonText>,
 };
 

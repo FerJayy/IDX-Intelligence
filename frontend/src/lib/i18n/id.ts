@@ -1,6 +1,7 @@
 import type { Dictionary } from "./en";
 
 const n = (v: unknown) => (typeof v === "number" ? v : Number(v));
+const flowWord = (v: unknown) => ({ ACCUMULATION: "mengumpulkan", NEUTRAL: "seimbang", DISTRIBUTION: "menjual" } as Record<string, string>)[String(v)] ?? String(v);
 
 export const id: Dictionary = {
   meta: {
@@ -27,6 +28,7 @@ export const id: Dictionary = {
     stocks: "Saham",
     ihsg: "IHSG",
     radar: "Radar Broker",
+    shortlist: "Layak dilihat",
     brokers: "Broker",
     watchlist: "★ Daftarku",
   },
@@ -125,6 +127,30 @@ export const id: Dictionary = {
       worse: "Itu lebih buruk dari pembanding: skor belum membantu sejauh ini.",
       teaser: (top: string, days: number) => `Terukur sejauh ini: pilihan teratas ${top} vs IHSG setelah 5 hari (${days} hari data).`,
       teaserLink: "Lihat rekam jejak",
+      inShortTitle: "Singkatnya",
+      inShort: (n: number, top: string, all: string) =>
+        `Seandainya kamu membeli ${n} saham teratas Radar setiap hari lalu menjualnya 5 hari bursa kemudian, rata-rata tiap transaksi menghasilkan ${top} dibanding IHSG. Membeli saham dipantau mana saja menghasilkan ${all}.`,
+      verdictBetter: "Sejauh ini pilihan Radar lebih baik daripada memilih saham dipantau mana saja.",
+      verdictWorse: "Sejauh ini pilihan Radar lebih buruk daripada memilih saham dipantau mana saja: peringkatnya belum membantu.",
+      stepsTitle: "Cara kerja tes ini",
+      steps: [
+        "Setiap malam di masa lalu, Radar memeringkat saham dipantau hanya dengan data broker yang sudah diketahui malam itu (tanpa data hari berikutnya).",
+        "Tes \"membeli\" saham pilihan di harga pembukaan pagi berikutnya.",
+        "Lalu \"menjual\"nya 1, 3 atau 5 hari bursa kemudian di harga penutupan, dikurangi biaya 0,4%.",
+        "Hasilnya dibandingkan dengan kinerja IHSG di hari yang sama persis. Di atas 0 berarti saham itu mengalahkan pasar.",
+      ],
+      example:
+        "Contoh: malam 1 Okt Radar menempatkan KLBF di #1 → tes membeli KLBF di pembukaan 2 Okt → menjual di penutupan 5 hari bursa kemudian → jika KLBF naik 3% sementara IHSG naik 1%, transaksi itu dihitung +2% vs IHSG (dikurangi biaya).",
+      groupHelp: {
+        TOP_PICKS: "Saham peringkat teratas Radar tiap hari — hasil jika kamu mengikuti peringkatnya.",
+        HIGH_SCORE: "Semua saham dengan skor 50 ke atas, hari apa pun.",
+        ACCUMULATION: "Hari-hari saat arus broker saham dinilai Akumulasi.",
+        NEUTRAL: "Hari-hari yang dinilai Netral.",
+        DISTRIBUTION: "Hari-hari yang dinilai Distribusi.",
+        ALL: "Semua saham dipantau, setiap hari — pembanding. Sinyal yang berguna harus mengalahkan baris ini.",
+      } as Record<string, string>,
+      columnsHelp:
+        "Angka besar: hasil rata-rata vs IHSG (hijau = mengalahkan pasar). \"untung\": persentase transaksi yang positif setelah biaya. \"transaksi\": berapa banyak yang diukur.",
       howTitle: "Cara membaca",
       how: [
         "“vs IHSG” adalah hasil rata-rata dikurangi kinerja IHSG di hari yang sama: di atas 0 berarti kelompok itu mengalahkan pasar.",
@@ -308,6 +334,39 @@ export const id: Dictionary = {
       EMAIL_FAILED: "Email belum bisa dikirim saat ini. Coba lagi nanti.",
     } as Record<string, string>,
     genericError: "Ada yang salah. Coba lagi sebentar lagi.",
+  },
+  shortlist: {
+    title: "Layak dilihat",
+    intro:
+      "Saham dipantau yang diperiksa dengan 8 syarat yang dipakai trader profesional dan riset. Makin banyak syarat yang lolos, makin tinggi peringkatnya. Semua pemeriksaan ditampilkan, jadi kamu bisa lihat persis kenapa sebuah saham ada di sini — dan apa yang menentangnya.",
+    disclaimerTitle: "Bukan saran investasi",
+    disclaimer:
+      "Ini daftar riset, bukan rekomendasi beli atau jual. Lolos semua syarat tidak berarti saham pasti naik: pasar bisa mengejutkan, dan pemeriksaan ini menggambarkan masa lalu. Selalu riset sendiri, hanya investasikan uang yang siap hilang, dan tentukan batas rugi (stop-loss) sebelum membeli.",
+    methodTitle: "Bagaimana saham masuk daftar ini",
+    groups: [
+      { name: "Tren", text: "Harga di atas rata-rata 50 hari, yang di atas rata-rata 200 hari yang naik, dan dalam 25% dari harga tertinggi 52 minggu. Swing trader profesional (misalnya \"trend template\" yang dipopulerkan Mark Minervini) hanya melihat saham yang sudah dalam tren naik." },
+      { name: "Kekuatan", text: "Mengungguli IHSG dalam 3 bulan terakhir. Saham yang unggul 3–12 bulan cenderung tetap unggul untuk sementara — efek \"momentum\", tercatat dalam riset akademis sejak 1993 di banyak negara. Bekerja dalam hitungan bulan, bukan hari." },
+      { name: "Uang besar", text: "Broker besar mengumpulkan dalam 10 hari data broker terakhir dan sebulan terakhir, dan investor asing net beli (bandarmologi). Pemain besar tidak bisa membeli sekaligus, jadi pembeliannya terlihat selama beberapa hari." },
+      { name: "Risiko", text: "Harga paling tinggi 10% di atas modal pembeli utama (belum terlalu tinggi), minimal Rp5 miliar ditransaksikan per hari (likuid), tidak masuk daftar HSC dan belum naik lebih dari 15% dalam 5 hari (tidak mengejar harga)." },
+    ],
+    scope: (tracked: number) =>
+      `Hanya ${tracked} saham yang punya data broker yang bisa diperiksa; tambah saham dengan “Muat data broker” di halamannya.`,
+    passed: (n: number, total: number) => `${n} dari ${total} syarat`,
+    rank: (n: number) => `#${n}`,
+    othersTitle: (n: number) => `Saham dipantau lainnya (${n})`,
+    measuredTitle: "Terukur sejauh ini",
+    measured: (top: string, all: string, days: number) =>
+      `Membeli 10 teratas tiap hari dan menahannya 5 hari bursa menghasilkan ${top} vs IHSG; membeli saham dipantau mana saja menghasilkan ${all} (${days} hari riwayat).`,
+    tooEarly: "Riwayat masih terlalu sedikit untuk tahu apakah daftar ini membantu. Anggap sebagai titik awal riset, bukan sinyal.",
+    groupsRecord: {
+      TOP_PICKS: "10 teratas tiap hari",
+      ALL_CHECKS: "Lolos semua syarat",
+      ALMOST_ALL: "Lolos semua kecuali satu",
+      ALL: "Semua saham dipantau (pembanding)",
+    } as Record<string, string>,
+    dataAsOf: (prices: string, brokers: string) => `Harga sampai ${prices} · data broker sampai ${brokers}`,
+    empty: "Belum ada saham dipantau dengan riwayat cukup.",
+    unavailable: "Daftar sedang tidak tersedia.",
   },
   dashboard: {
     openIhsg: "Buka grafik IHSG →",
@@ -538,6 +597,50 @@ export const id: Dictionary = {
     NEAR_LIMIT_UP: (v, f) =>
       `Naik ${f.signedFraction(n(v.change))} hari ini, kemungkinan menyentuh batas atas (ARA): sulit dibeli saat pembukaan`,
     CHASING: (v, f) => `Sudah naik ${f.signedFraction(n(v.change5d))} dalam 5 hari: risiko tinggi mengejar harga`,
+    SL_LONG_TREND: (v, f) =>
+      v.pass
+        ? `Tren naik jangka panjang: harga di atas rata-rata 50 hari (${f.price(n(v.ma50))}), yang di atas rata-rata 200 hari yang naik (${f.price(n(v.ma200))})`
+        : v.ma200 == null
+          ? "Riwayat harga belum cukup untuk rata-rata 200 hari"
+          : `Belum tren naik jangka panjang: harga, rata-rata 50 hari (${f.price(n(v.ma50))}) dan 200 hari (${f.price(n(v.ma200))}) belum tersusun naik`,
+    SL_NEAR_HIGH: (v, f) =>
+      v.fromHigh == null
+        ? "Riwayat belum cukup untuk harga tertinggi 52 minggu"
+        : v.pass
+          ? `Dekat harga tertinggi 52 minggu (${f.price(n(v.high))}): ${f.fraction(Math.abs(n(v.fromHigh)))} di bawahnya`
+          : `${f.fraction(Math.abs(n(v.fromHigh)))} di bawah harga tertinggi 52 minggu (${f.price(n(v.high))}) — jauh dari puncaknya`,
+    SL_STRENGTH: (v, f) =>
+      v.excess3m == null
+        ? "Belum bisa dibandingkan dengan IHSG"
+        : v.pass
+          ? `Lebih kuat dari pasar: mengungguli IHSG ${f.fraction(n(v.excess3m))} dalam 3 bulan`
+          : `Lebih lemah dari pasar: tertinggal dari IHSG ${f.fraction(Math.abs(n(v.excess3m)))} dalam 3 bulan`,
+    SL_BROKERS: (v) =>
+      v.pass
+        ? "Broker besar mengumpulkan, baik dalam 10 hari data broker terakhir maupun sebulan terakhir"
+        : `Broker besar belum mengumpulkan di keduanya (10 hari: ${flowWord(v.tenDays)}, 1 bulan: ${flowWord(v.month)})`,
+    SL_FOREIGN: (v, f) =>
+      v.value == null
+        ? "Data arus asing sebulan terakhir belum cukup"
+        : v.pass
+          ? `Investor asing net beli ${f.rupiah(n(v.value))} dalam sebulan terakhir`
+          : `Investor asing net jual ${f.rupiah(Math.abs(n(v.value)))} dalam sebulan terakhir`,
+    SL_NOT_STRETCHED: (v, f) =>
+      v.gap == null
+        ? "Belum ada modal pembeli untuk dibandingkan"
+        : v.pass
+          ? `Belum terlalu tinggi: harga ${f.signedFraction(n(v.gap))} dibanding modal pembeli utama sebulan terakhir (${f.price(n(v.averagePrice))})`
+          : `Sudah tinggi: harga ${f.fraction(n(v.gap))} di atas modal pembeli utama sebulan terakhir (${f.price(n(v.averagePrice))}) — mereka mungkin ambil untung`,
+    SL_LIQUID: (v, f) =>
+      v.pass
+        ? `Likuid: rata-rata ${f.rupiah(n(v.avgValue))} ditransaksikan per hari`
+        : `Kurang likuid: ${f.rupiah(n(v.avgValue))} per hari (minimal ${f.rupiah(n(v.minValue))}) — sulit jual-beli tanpa menggerakkan harga`,
+    SL_SAFE: (v, f) =>
+      v.pass
+        ? "Tidak masuk daftar HSC dan belum naik lebih dari 15% dalam 5 hari"
+        : v.hsc
+          ? "Masuk daftar High Shareholding Concentration BEI — segelintir pemegang menguasai hampir semua saham"
+          : `Sudah naik ${f.signedFraction(n(v.change5d))} dalam 5 hari — membeli sekarang berarti mengejar harga`,
     SUM_TREND_UP: (v, f) => `Tren naik: harga di atas rata-rata 20 hari yang naik (${f.price(n(v.ma20))})`,
     SUM_TREND_DOWN: (v, f) => `Tren turun: harga di bawah rata-rata 20 hari yang turun (${f.price(n(v.ma20))})`,
     SUM_TREND_SIDEWAYS: (v, f) => `Belum ada tren jelas: harga bergerak di sekitar rata-rata 20 hari (${f.price(n(v.ma20))})`,

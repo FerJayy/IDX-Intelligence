@@ -389,6 +389,36 @@ export async function getRadarTrackRecord(window: RadarWindow): Promise<RadarTra
   return response.json();
 }
 
+// Mirrors ShortlistService in backend/.../signal.
+export type ShortlistCandidate = {
+  ticker: string;
+  name: string;
+  hsc: boolean;
+  passed: number;
+  eligible: boolean; // liquid and not HSC/chasing: only these can top the list
+  lastPrice: number | null;
+  changePercent: number | null;
+  checks: Reason[]; // SL_* codes; points 1 = passed, 0 = not passed
+};
+
+export type Shortlist = {
+  generatedAt: string;
+  priceDate: string | null;
+  brokerDate: string | null;
+  checks: number;
+  size: number;
+  candidates: ShortlistCandidate[];
+  record: (Omit<RadarTrackRecord, "groups"> & { groups: { group: string; signalDays: number; horizons: TrackHorizon[] }[] }) | null;
+};
+
+export async function getShortlist(): Promise<Shortlist> {
+  const response = await backendFetch("/api/shortlist");
+  if (!response.ok) {
+    throw new Error(`Shortlist request failed: ${response.status}`);
+  }
+  return response.json();
+}
+
 export async function getRadar(window: RadarWindow): Promise<Radar> {
   const response = await backendFetch(`/api/watchlist/radar?window=${window}`);
   if (!response.ok) {

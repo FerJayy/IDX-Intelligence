@@ -11,6 +11,7 @@ export async function SiteHeader() {
   const items: NavItem[] = [
     { href: `/${locale}`, label: t.nav.overview },
     { href: `/${locale}/stocks`, label: t.nav.stocks },
+    { href: `/${locale}/shortlist`, label: t.nav.shortlist },
     { href: `/${locale}/radar`, label: t.nav.radar },
     { href: `/${locale}/brokers`, label: t.nav.brokers },
     { href: `/${locale}/ihsg`, label: t.nav.ihsg },
