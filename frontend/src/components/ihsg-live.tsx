@@ -26,7 +26,9 @@ export function IhsgLive({
   changePercent,
   closeDate,
   labels,
+  align = "left",
 }: {
+  align?: "left" | "right";
   locale: Locale;
   close: number | null;
   change: number | null;
@@ -75,8 +77,8 @@ export function IhsgLive({
   const shownPercent = live ? (reference ? ((live.value - reference) / reference) * 100 : null) : changePercent;
 
   return (
-    <div className="mt-2">
-      <div className="flex flex-wrap items-baseline gap-x-3">
+    <div className={align === "right" ? "text-right" : "mt-2"}>
+      <div className={`flex flex-wrap items-baseline gap-x-3 ${align === "right" ? "justify-end" : ""}`}>
         <p className="text-3xl font-bold tabular-nums">{f.index(value)}</p>
         <p className={`tabular-nums ${changeColor(shownChange)}`}>
           {f.change(shownChange, 2)} ({f.percent(shownPercent)})

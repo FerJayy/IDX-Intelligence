@@ -3,9 +3,9 @@ import { unstable_rethrow } from "next/navigation";
 import { Suspense } from "react";
 import { ChartControls } from "@/components/chart-controls";
 import { DemoBanner } from "@/components/demo-banner";
+import { IhsgLive } from "@/components/ihsg-live";
 import { PriceChart } from "@/components/price-chart";
 import { getIndex, getIndexCandles, parseInterval, type CandleSeries, type IndexDetail, type Interval } from "@/lib/api";
-import { changeColor } from "@/lib/format";
 import { getI18n } from "@/lib/i18n";
 
 export default async function IhsgPage({ searchParams }: PageProps<"/[lang]/ihsg">) {
@@ -49,12 +49,17 @@ async function IhsgChart({ interval, range }: { interval: Interval; range?: stri
       <header className="flex flex-wrap items-end justify-between gap-4">
         <h1 className="text-2xl font-bold">{t.ihsg.title}</h1>
         {index && (
-          <div className="text-right">
-            <p className="text-3xl font-bold tabular-nums">{f.index(index.value)}</p>
-            <p className={`tabular-nums ${changeColor(index.change)}`}>
-              {f.change(index.change, 2)} ({f.percent(index.changePercent)})
-            </p>
-            {index.tradeDate && <p className="text-xs text-faint">{t.stock.closeOf(f.tradingDate(index.tradeDate))}</p>}
+          <div>
+            <IhsgLive
+              align="right"
+              locale={locale}
+              close={index.value}
+              change={index.change}
+              changePercent={index.changePercent}
+              closeDate={index.tradeDate}
+              labels={{ live: t.live.badge, delayed: t.dashboard.ihsgDelayed }}
+            />
+            {index.tradeDate && <p className="text-right text-xs text-faint">{t.stock.closeOf(f.tradingDate(index.tradeDate))}</p>}
           </div>
         )}
       </header>

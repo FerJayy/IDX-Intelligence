@@ -81,6 +81,12 @@ function sessionOpen(): boolean {
   return !["Sat", "Sun"].includes(get("weekday")) && minutes >= 9 * 60 && minutes < 16 * 60 + 15;
 }
 
+/** An intraday candle's Jakarta trading date, in the same form as jakartaTodayTime(). */
+function jakartaDayTime(epochSeconds: number): number {
+  const day = new Date((epochSeconds + WIB_OFFSET_SECONDS) * 1000).toISOString().slice(0, 10);
+  return Date.parse(`${day}T00:00:00Z`) / 1000;
+}
+
 /** Today's trading date in Jakarta as epoch seconds at 00:00 UTC, the time daily candles use. */
 function jakartaTodayTime(): number {
   const day = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(new Date());
@@ -274,34 +280,55 @@ export function PriceChart({ locale, labels, candles: initialCandles, intraday, 
   }, [quote, liveDaily, applyCandles]);
 
   // Intraday charts: re-fetch the (delayed) candles every 2 minutes while the market trades.
-  const refreshSymbol = live != null && intraday && (trading || !live.stock) ? live.symbol : null;
-  const refreshInterval = live?.interval;
-  const refreshRange = live?.range;
+  // The IHSG's daily chart has no live quote, so its today candle is built from today's 15-minute candles.
+  const indexDaily = live != null && !live.stock && live.interval === "1d";
+  const refreshSymbol = live != null && ((intraday && (trading || !live.stock)) || indexDaily) ? live.symbol : null;
+  const refreshInterval = indexDaily ? "15m" : live?.interval;
+  const refreshRange = indexDaily ? "5D" : live?.range;
   useEffect(() => {
     if (!refreshSymbol || !refreshInterval || !refreshRange) return;
     const startedAt = Date.now();
     let cancelled = false;
-    const timer = window.setInterval(() => {
-      if (Date.now() - startedAt > STOP_AFTER_MS) {
-        window.clearInterval(timer);
-        return;
-      }
+    const load = () => {
       if (document.visibilityState !== "visible" || !sessionOpen()) return;
       const params = new URLSearchParams({ symbol: refreshSymbol, interval: refreshInterval, range: refreshRange });
       fetch(`/api/candles?${params}`, { cache: "no-store" })
         .then((response) => (response.ok ? (response.json() as Promise<CandleSeries>) : null))
         .then((series) => {
           if (cancelled || !series || series.candles.length === 0) return;
+          if (indexDaily) {
+            const today = jakartaTodayTime();
+            const todays = series.candles.filter((c) => jakartaDayTime(c.time) === today);
+            const last = candlesRef.current[candlesRef.current.length - 1];
+            if (todays.length === 0 || (last != null && last.time > today)) return;
+            applyCandles(candlesRef.current, [
+              {
+                time: today,
+                open: todays[0].open ?? todays[0].close,
+                high: Math.max(...todays.map((c) => c.high ?? c.close)),
+                low: Math.min(...todays.map((c) => c.low ?? c.close)),
+                close: todays[todays.length - 1].close,
+                volume: todays.reduce((sum, c) => sum + (c.volume ?? 0), 0) || null,
+              },
+            ]);
+            return;
+          }
           // The candle that was still forming, plus any new ones.
           applyCandles(candlesRef.current, series.candles.slice(-3));
         })
         .catch(() => {});
+    };
+    // The IHSG's today candle isn't in the server's data, so ask right away; intraday charts already are current.
+    if (indexDaily) load();
+    const timer = window.setInterval(() => {
+      if (Date.now() - startedAt > STOP_AFTER_MS) window.clearInterval(timer);
+      else load();
     }, INTRADAY_REFRESH_MS);
     return () => {
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, [refreshSymbol, refreshInterval, refreshRange, applyCandles]);
+  }, [refreshSymbol, refreshInterval, refreshRange, indexDaily, applyCandles]);
 
   if (candles.length === 0) {
     return <p className="text-sm text-faint">{labels.noHistory}</p>;
