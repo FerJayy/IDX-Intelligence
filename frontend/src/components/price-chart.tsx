@@ -1,25 +1,32 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import {
   CandlestickSeries,
   ColorType,
   createChart,
   HistogramSeries,
+  type ISeriesApi,
   LineSeries,
   type MouseEventParams,
   type Time,
   type UTCTimestamp,
 } from "lightweight-charts";
-import type { Candle, DailyBrokerFlow } from "@/lib/api";
+import type { Candle, CandleSeries, DailyBrokerFlow } from "@/lib/api";
 import { changeColor, makeFormat } from "@/lib/format";
 import type { ClientLabels, Dictionary } from "@/lib/i18n/en";
 import type { Locale } from "@/lib/i18n/locales";
+import { isLiveTrading, useLiveQuote } from "@/lib/live-store";
 
 // Stable default: a fresh [] each render would re-run the chart effect on every hover.
 const NO_FLOWS: DailyBrokerFlow[] = [];
 // The chart library labels its time axis in UTC; shifting intraday times by +7 h makes it read WIB.
 const WIB_OFFSET_SECONDS = 7 * 3600;
+const LOT_SIZE = 100;
+/** Intraday candles come from Yahoo (delayed); the backend refreshes them at most every 2 minutes. */
+const INTRADAY_REFRESH_MS = 120_000;
+/** Same limit as the live price: stop after 15 minutes so a forgotten tab stays quiet. */
+const STOP_AFTER_MS = 15 * 60_000;
 
 // Re-render when the theme class on <html> changes, so the chart picks up the new colours.
 function subscribeToTheme(onChange: () => void) {
@@ -57,12 +64,38 @@ type Props = {
   intraday: boolean;
   /** Daily broker flow, matched to daily candles by date. Ignored for other intervals. */
   flows?: DailyBrokerFlow[];
+  /**
+   * Keeps the chart moving while the market trades: on daily candles today's candle follows the live
+   * price (stocks only); intraday charts re-fetch their candles every 2 minutes.
+   */
+  live?: { symbol: string; interval: string; range: string; stock: boolean };
 };
+
+/** Weekday 09:00-16:15 WIB (holidays aren't known here; a closed day just returns the same candles). */
+function sessionOpen(): boolean {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Jakarta", weekday: "short", hour: "2-digit", minute: "2-digit", hour12: false,
+  }).formatToParts(new Date());
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
+  const minutes = Number(get("hour")) * 60 + Number(get("minute"));
+  return !["Sat", "Sun"].includes(get("weekday")) && minutes >= 9 * 60 && minutes < 16 * 60 + 15;
+}
+
+/** Today's trading date in Jakarta as epoch seconds at 00:00 UTC, the time daily candles use. */
+function jakartaTodayTime(): number {
+  const day = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(new Date());
+  return Date.parse(`${day}T00:00:00Z`) / 1000;
+}
 
 // Each measure gets its own pane and scale, sharing only the time axis.
 // Up candles are hollow and down candles filled, so direction never relies on colour alone.
-export function PriceChart({ locale, labels, candles, intraday, flows = NO_FLOWS }: Props) {
+export function PriceChart({ locale, labels, candles: initialCandles, intraday, flows = NO_FLOWS, live }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
+  // The drawn series, so live updates can change the last candle without rebuilding the chart.
+  const seriesRef = useRef<{ price: ISeriesApi<"Candlestick">; volume: ISeriesApi<"Histogram"> } | null>(null);
+  // Candles shown in the readout: the server's, plus whatever live updates added or changed.
+  const [extra, setExtra] = useState<{ base: Candle[]; candles: Candle[] } | null>(null);
+  const candles = extra?.base === initialCandles ? extra.candles : initialCandles;
   const [hovered, setHovered] = useState<number | null>(null);
   const dark = useSyncExternalStore(subscribeToTheme, isDarkTheme, () => false);
   const f = useMemo(() => makeFormat(locale), [locale]);
@@ -71,7 +104,8 @@ export function PriceChart({ locale, labels, candles, intraday, flows = NO_FLOWS
 
   useEffect(() => {
     const container = containerRef.current;
-    if (!container || candles.length === 0) return;
+    if (!container || initialCandles.length === 0) return;
+    const candles = initialCandles;
     const c = themeColors();
     const times = candles.map((candle) => chartTime(candle, intraday));
 
@@ -170,12 +204,104 @@ export function PriceChart({ locale, labels, candles, intraday, flows = NO_FLOWS
       setHovered(index ?? null);
     };
     chart.subscribeCrosshairMove(onMove);
+    seriesRef.current = { price: series, volume };
 
     return () => {
+      seriesRef.current = null;
       chart.unsubscribeCrosshairMove(onMove);
       chart.remove();
     };
-  }, [candles, intraday, flowByDate, showFlows, dark, f, labels, locale]);
+  }, [initialCandles, intraday, flowByDate, showFlows, dark, f, labels, locale]);
+
+  /** Draws changed or new candles at the end of the chart and keeps them for the readout. */
+  const applyCandles = useCallback(
+    (current: Candle[], updates: Candle[]) => {
+      if (updates.length === 0) return;
+      const firstTime = updates[0].time;
+      // Only the tail can change: earlier candles are final.
+      if (current.length > 0 && firstTime < current[current.length - 1].time - 1) {
+        const lastTime = current[current.length - 1].time;
+        updates = updates.filter((u) => u.time >= lastTime);
+        if (updates.length === 0) return;
+      }
+      const from = updates[0].time;
+      const drawn = seriesRef.current;
+      for (const u of updates) {
+        const time = chartTime(u, intraday);
+        drawn?.price.update({
+          time,
+          open: u.open ?? u.close,
+          high: u.high ?? Math.max(u.open ?? u.close, u.close),
+          low: u.low ?? Math.min(u.open ?? u.close, u.close),
+          close: u.close,
+        });
+        if (u.volume != null) drawn?.volume.update({ time, value: u.volume });
+      }
+      setExtra({ base: initialCandles, candles: [...current.filter((x) => x.time < from), ...updates] });
+    },
+    [initialCandles, intraday],
+  );
+
+  // Daily chart of a stock: today's candle follows the live price (already polled for the live box).
+  const liveDaily = live?.stock && live.interval === "1d" ? live.symbol : null;
+  // Stocks: the shared live poller tells whether the market is trading. The IHSG has no live quote,
+  // so its intraday refresh checks the session clock instead.
+  const liveState = useLiveQuote(live?.stock ? live.symbol : null);
+  const quote = isLiveTrading(liveState) ? liveState.result!.quote! : null;
+  const trading = quote != null;
+  const candlesRef = useRef(candles);
+  useEffect(() => {
+    candlesRef.current = candles;
+  }, [candles]);
+  useEffect(() => {
+    if (!liveDaily || !quote || quote.lastPrice == null) return;
+    const current = candlesRef.current;
+    const todayTime = jakartaTodayTime();
+    const last = current[current.length - 1];
+    if (last != null && last.time > todayTime) return;
+    const price = quote.lastPrice;
+    const sameDay = last != null && last.time === todayTime;
+    applyCandles(current, [
+      {
+        time: todayTime,
+        open: sameDay ? last.open : price,
+        high: Math.max(sameDay ? (last.high ?? price) : price, price),
+        low: Math.min(sameDay ? (last.low ?? price) : price, price),
+        close: price,
+        volume: quote.lot == null ? null : quote.lot * LOT_SIZE,
+      },
+    ]);
+  }, [quote, liveDaily, applyCandles]);
+
+  // Intraday charts: re-fetch the (delayed) candles every 2 minutes while the market trades.
+  const refreshSymbol = live != null && intraday && (trading || !live.stock) ? live.symbol : null;
+  const refreshInterval = live?.interval;
+  const refreshRange = live?.range;
+  useEffect(() => {
+    if (!refreshSymbol || !refreshInterval || !refreshRange) return;
+    const startedAt = Date.now();
+    let cancelled = false;
+    const timer = window.setInterval(() => {
+      if (Date.now() - startedAt > STOP_AFTER_MS) {
+        window.clearInterval(timer);
+        return;
+      }
+      if (document.visibilityState !== "visible" || !sessionOpen()) return;
+      const params = new URLSearchParams({ symbol: refreshSymbol, interval: refreshInterval, range: refreshRange });
+      fetch(`/api/candles?${params}`, { cache: "no-store" })
+        .then((response) => (response.ok ? (response.json() as Promise<CandleSeries>) : null))
+        .then((series) => {
+          if (cancelled || !series || series.candles.length === 0) return;
+          // The candle that was still forming, plus any new ones.
+          applyCandles(candlesRef.current, series.candles.slice(-3));
+        })
+        .catch(() => {});
+    }, INTRADAY_REFRESH_MS);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [refreshSymbol, refreshInterval, refreshRange, applyCandles]);
 
   if (candles.length === 0) {
     return <p className="text-sm text-faint">{labels.noHistory}</p>;

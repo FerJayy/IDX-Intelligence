@@ -30,7 +30,8 @@ import java.util.function.Function;
 @Service
 public class CandleService {
 
-    static final Duration INTRADAY_CACHE = Duration.ofMinutes(10);
+    // Short enough that open chart pages refreshing every 2 minutes see new candles; still shared by all viewers.
+    static final Duration INTRADAY_CACHE = Duration.ofMinutes(2);
     private static final int CACHE_ENTRIES = 300;
     /** Our index code -> Yahoo symbol. */
     private static final Map<String, String> INDEX_SYMBOLS = Map.of("COMPOSITE", "^JKSE");

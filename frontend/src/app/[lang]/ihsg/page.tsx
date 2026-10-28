@@ -68,7 +68,13 @@ async function IhsgChart({ interval, range }: { interval: Interval; range?: stri
             hrefFor={(i, r) => `/${locale}/ihsg?tf=${i}${r ? `&range=${r}` : ""}`}
             labels={t.chartControls}
           />
-          <PriceChart locale={locale} labels={t.chart} candles={chart.candles} intraday={chart.intraday} />
+          <PriceChart
+            locale={locale}
+            labels={t.chart}
+            candles={chart.candles}
+            intraday={chart.intraday}
+            live={{ symbol: "COMPOSITE", interval: chart.interval, range: chart.range, stock: false }}
+          />
           {chart.intraday && <p className="text-xs text-faint">{t.chartControls.intradayNote}</p>}
           <p className="text-xs text-faint">
             {t.common.source}: {chart.dataSource} · {t.common.generated} {f.jakartaTime(chart.generatedAt)}

@@ -12,12 +12,13 @@ import {
   type TrackOutcome,
 } from "@/lib/api";
 import { loadBrokerData } from "@/lib/actions";
-import { changeColor } from "@/lib/format";
+
 import { getI18n } from "@/lib/i18n";
 import { readWatchlist } from "@/lib/watchlist";
 import { BrokerActivity } from "./broker-activity";
 import { ChartControls } from "./chart-controls";
 import { DemoBanner } from "./demo-banner";
+import { HeaderPrice } from "./header-price";
 import { HscBadge } from "./hsc-badge";
 import { InsiderBox } from "./insider-box";
 import { LivePrice } from "./live-price";
@@ -85,16 +86,18 @@ export async function StockOverview({
             <WatchButton ticker={quote.ticker} watched={watchlist.includes(quote.ticker)} labels={t.watchlist.button} />
           </div>
         </div>
-        <div className="text-right">
-          <p className="text-3xl font-bold tabular-nums">{f.price(quote.lastPrice)}</p>
-          <p className={`tabular-nums ${changeColor(quote.change)}`}>
-            {f.change(quote.change)} ({f.percent(quote.changePercent)})
-          </p>
-          <p className="text-xs text-faint">
-            {t.stock.vol} {f.compact(quote.volume)} · {t.stock.estValue} {f.rupiah(quote.value)}
-          </p>
-          {quote.tradeDate && <p className="text-xs text-faint">{t.stock.closeOf(f.tradingDate(quote.tradeDate))}</p>}
-        </div>
+        <HeaderPrice
+          ticker={stock.demo ? null : quote.ticker}
+          locale={locale}
+          close={quote.lastPrice}
+          change={quote.change}
+          changePercent={quote.changePercent}
+          details={[
+            `${t.stock.vol} ${f.compact(quote.volume)} · ${t.stock.estValue} ${f.rupiah(quote.value)}`,
+            ...(quote.tradeDate ? [t.stock.closeOf(f.tradingDate(quote.tradeDate))] : []),
+          ]}
+          labels={{ live: t.live.badge, updated: t.live.updated, volume: t.live.lots, value: t.live.value }}
+        />
       </header>
 
       {quote.hsc && (
@@ -117,6 +120,7 @@ export async function StockOverview({
           candles={chart.candles}
           intraday={chart.intraday}
           flows={brokers?.tracked && interval === "1d" ? brokers.daily : undefined}
+          live={stock.demo ? undefined : { symbol: quote.ticker, interval, range: chart.range, stock: true }}
         />
         <ChartNotes chart={chart} interval={interval} brokerTracked={!!brokers?.tracked} t={t} />
       </section>

@@ -1,60 +1,22 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import type { LiveResult } from "@/lib/api";
+import { useMemo } from "react";
 import { changeColor, makeFormat } from "@/lib/format";
 import type { ClientLabels, Dictionary } from "@/lib/i18n/en";
 import type { Locale } from "@/lib/i18n/locales";
+import { useLiveQuote } from "@/lib/live-store";
 
-const REFRESH_MS = 60_000;
-/** Stop polling after this long so a forgotten tab can't use up the free daily limit. */
-const STOP_AFTER_MS = 15 * 60_000;
 const LOT_SIZE = 100;
 
-const UNAVAILABLE: LiveResult = { status: "UNAVAILABLE", quote: null, fetchedAt: null, budgetLeft: 0 };
-
-function fetchLive(ticker: string): Promise<LiveResult> {
-  return fetch(`/api/live/${ticker}`, { cache: "no-store" })
-    .then((response) => response.json() as Promise<LiveResult>)
-    .catch(() => UNAVAILABLE);
-}
-
 /**
- * Real-time price box. Asks once on open, then every minute while the tab is visible, for at most
- * 15 minutes (then "Resume"). Shows nothing outside market hours: the page's end-of-day data applies.
+ * Real-time price box. The shared poller (lib/live-store) asks once on open, then every minute while
+ * the tab is visible, for at most 15 minutes (then "Resume"). Shows nothing outside market hours.
  */
 export function LivePrice({ ticker, locale, labels }: { ticker: string; locale: Locale; labels: ClientLabels<Dictionary["live"]> }) {
   const f = useMemo(() => makeFormat(locale), [locale]);
-  const [result, setResult] = useState<LiveResult | null>(null);
-  const [paused, setPaused] = useState(false);
-
-  // Nothing more to ask once the market is closed or the budget is spent.
+  const { result, paused, resume } = useLiveQuote(ticker);
   const status = result?.status;
-  const stopped = status === "MARKET_CLOSED" || status === "BUDGET_USED" || status === "UNAVAILABLE";
-  const halted = paused || stopped;
-
-  useEffect(() => {
-    if (halted) return;
-    let cancelled = false;
-    const startedAt = Date.now();
-    const tick = () =>
-      fetchLive(ticker).then((next) => {
-        if (!cancelled) setResult(next);
-      });
-    tick();
-    const timer = window.setInterval(() => {
-      if (Date.now() - startedAt > STOP_AFTER_MS) {
-        setPaused(true);
-        return;
-      }
-      // Background tabs don't spend requests; the next visible tick catches up.
-      if (document.visibilityState === "visible") tick();
-    }, REFRESH_MS);
-    return () => {
-      cancelled = true;
-      window.clearInterval(timer);
-    };
-  }, [ticker, halted]);
+  const halted = paused || status !== "LIVE";
 
   if (!result || status === "MARKET_CLOSED") return null;
 
@@ -94,7 +56,7 @@ export function LivePrice({ ticker, locale, labels }: { ticker: string; locale: 
       {paused ? (
         <p className="mt-2 text-xs text-faint">
           {labels.paused}{" "}
-          <button type="button" onClick={() => setPaused(false)} className="font-semibold text-accent hover:underline">
+          <button type="button" onClick={resume} className="font-semibold text-accent hover:underline">
             {labels.resume}
           </button>
         </p>
