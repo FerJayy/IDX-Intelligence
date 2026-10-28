@@ -288,6 +288,7 @@ export const id: Dictionary = {
     resetIntro: "Setelah ini kamu keluar dari semua perangkat dan bisa masuk dengan kata sandi baru.",
     resetButton: "Simpan kata sandi baru",
     resetDone: "Kata sandi diganti. Masuk dengan kata sandi barumu.",
+    registered: "Akun berhasil dibuat! Masuk dengan email dan kata sandimu.",
     backToLogin: "← Kembali ke halaman masuk",
     logout: "Keluar",
     loggedInAs: (email: string) => `Masuk sebagai ${email}`,

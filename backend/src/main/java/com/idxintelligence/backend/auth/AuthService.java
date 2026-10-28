@@ -84,8 +84,16 @@ public class AuthService {
         checkPassword(password);
         if (!registrations.allowed(clientKey)) throw error(HttpStatus.TOO_MANY_REQUESTS, "TOO_MANY_ATTEMPTS");
         registrations.record(clientKey);
-        boolean taken = jdbc.sql("SELECT count(*) FROM app_user WHERE email = ?").param(email).query(Integer.class).single() > 0;
-        if (taken) throw error(HttpStatus.CONFLICT, "EMAIL_TAKEN");
+        record Existing(long id, String hash) {
+        }
+        Optional<Existing> existing = jdbc.sql("SELECT id, password_hash FROM app_user WHERE email = ?").param(email)
+                .query((rs, n) -> new Existing(rs.getLong("id"), rs.getString("password_hash"))).optional();
+        if (existing.isPresent()) {
+            // A repeated submit (double click, or a slow first try while the server woke up) already created
+            // the account: the same password simply logs in. A different password can't take it over.
+            if (encoder.matches(password, existing.get().hash())) return newSession(new User(existing.get().id(), email));
+            throw error(HttpStatus.CONFLICT, "EMAIL_TAKEN");
+        }
         long id = jdbc.sql("INSERT INTO app_user (email, password_hash) VALUES (?, ?) RETURNING id")
                 .params(email, encoder.encode(password)).query(Long.class).single();
         return newSession(new User(id, email));

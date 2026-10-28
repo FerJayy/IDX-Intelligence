@@ -76,9 +76,18 @@ class AuthTests extends EmbeddedPostgresTest {
         assertThatThrownBy(() -> service.register("not-an-email", "rahasia123", "ip:1")).hasMessageContaining("INVALID_EMAIL");
         assertThatThrownBy(() -> service.register("a@b.co", "short", "ip:1")).hasMessageContaining("PASSWORD_TOO_SHORT");
         service.register("a@b.co", "rahasia123", "ip:1");
-        assertThatThrownBy(() -> service.register("A@B.CO", "rahasia123", "ip:1")).hasMessageContaining("EMAIL_TAKEN");
+        assertThatThrownBy(() -> service.register("A@B.CO", "otherpass99", "ip:1")).hasMessageContaining("EMAIL_TAKEN");
         assertThatThrownBy(() -> service.login("a@b.co", "salah12345", "ip:1")).hasMessageContaining("WRONG_LOGIN");
         assertThatThrownBy(() -> service.login("nobody@b.co", "salah12345", "ip:1")).hasMessageContaining("WRONG_LOGIN");
+    }
+
+    @Test
+    void registeringTwiceWithTheSamePasswordJustLogsIn() {
+        AuthService service = fresh();
+        AuthService.Session first = service.register("friend@b.co", "rahasia123", "ip:1");
+        AuthService.Session again = service.register("Friend@B.co", "rahasia123", "ip:1");
+        assertThat(again.user().id()).isEqualTo(first.user().id());
+        assertThat(service.user(again.token())).isPresent();
     }
 
     @Test

@@ -4,6 +4,9 @@ import { AuthCard, Field, Notice, SubmitButton } from "@/components/auth-form";
 import { chooseNewPassword } from "@/lib/actions";
 import { getI18n } from "@/lib/i18n";
 
+// The backend can take up to a minute to wake up; let this page's Server Actions wait for it.
+export const maxDuration = 60;
+
 // The reset token is in this page's URL: never send it to other sites as a Referer.
 export const metadata = { referrer: "no-referrer" };
 

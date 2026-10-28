@@ -1,8 +1,12 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { AuthCard, Field, Notice, SubmitButton } from "@/components/auth-form";
+import { WakeBackend } from "@/components/wake-backend";
 import { login } from "@/lib/actions";
 import { getI18n } from "@/lib/i18n";
+
+// The backend can take up to a minute to wake up; let this page's Server Actions wait for it.
+export const maxDuration = 60;
 
 export default async function LoginPage({ searchParams }: PageProps<"/[lang]/login">) {
   const { locale, t } = await getI18n();
@@ -13,6 +17,7 @@ export default async function LoginPage({ searchParams }: PageProps<"/[lang]/log
     const next = typeof query.next === "string" ? query.next : `/${locale}`;
     return (
       <>
+        {query.registered === "1" && <Notice kind="info">{a.registered}</Notice>}
         {query.reset === "1" && <Notice kind="info">{a.resetDone}</Notice>}
         {error && <Notice kind="error">{a.errors[error] ?? a.genericError}</Notice>}
         <form action={login} className="space-y-4">
@@ -27,6 +32,7 @@ export default async function LoginPage({ searchParams }: PageProps<"/[lang]/log
   });
   return (
     <AuthCard title={a.loginTitle} intro={a.loginIntro}>
+      <WakeBackend />
       <Suspense fallback={null}>{form}</Suspense>
       <div className="mt-5 space-y-1 text-sm">
         <p>

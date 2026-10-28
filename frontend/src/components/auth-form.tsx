@@ -43,13 +43,7 @@ export function Field({
   );
 }
 
-export function SubmitButton({ children }: { children: ReactNode }) {
-  return (
-    <button type="submit" className="w-full rounded-md bg-fg px-4 py-2 text-sm font-semibold text-page hover:opacity-90">
-      {children}
-    </button>
-  );
-}
+export { SubmitButton } from "./submit-button";
 
 export function Notice({ kind, children }: { kind: "error" | "info"; children: ReactNode }) {
   const style = kind === "error" ? "border-danger-line bg-danger-bg text-danger-fg" : "border-info-line bg-info-bg text-info-fg";

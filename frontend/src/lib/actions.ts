@@ -73,8 +73,8 @@ export async function register(formData: FormData) {
   if (password !== String(formData.get("confirm") ?? "")) redirect(`/${lang}/register?error=PASSWORD_MISMATCH`);
   const result = await registerAccount(String(formData.get("email") ?? ""), password, await clientIp());
   if (!result.ok) redirect(`/${lang}/register?error=${encodeURIComponent(result.error)}`);
-  await startSession(result);
-  redirect(`/${lang}`);
+  // Account created: confirm it and let the visitor log in with what they just chose.
+  redirect(`/${lang}/login?registered=1`);
 }
 
 export async function logout(formData: FormData) {

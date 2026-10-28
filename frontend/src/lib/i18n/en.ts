@@ -293,6 +293,7 @@ export const en = {
     resetIntro: "After this you'll be logged out on every device and can log in with the new password.",
     resetButton: "Save new password",
     resetDone: "Password changed. Log in with your new password.",
+    registered: "Account created! Log in with your email and password.",
     backToLogin: "← Back to log in",
     logout: "Log out",
     loggedInAs: (email: string) => `Logged in as ${email}`,

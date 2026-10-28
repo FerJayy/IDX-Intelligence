@@ -1,8 +1,12 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { AuthCard, Field, Notice, SubmitButton } from "@/components/auth-form";
+import { WakeBackend } from "@/components/wake-backend";
 import { register } from "@/lib/actions";
 import { getI18n } from "@/lib/i18n";
+
+// The backend can take up to a minute to wake up; let this page's Server Actions wait for it.
+export const maxDuration = 60;
 
 export default async function RegisterPage({ searchParams }: PageProps<"/[lang]/register">) {
   const { locale, t } = await getI18n();
@@ -12,6 +16,7 @@ export default async function RegisterPage({ searchParams }: PageProps<"/[lang]/
   );
   return (
     <AuthCard title={a.registerTitle} intro={a.registerIntro}>
+      <WakeBackend />
       <Suspense fallback={null}>{message}</Suspense>
       <form action={register} className="space-y-4">
         <input type="hidden" name="lang" value={locale} />
