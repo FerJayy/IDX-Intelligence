@@ -1,12 +1,26 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { DEFAULT_LOCALE, LOCALE_COOKIE, LOCALES, hasLocale, type Locale } from "@/lib/i18n/locales";
 
-// Adds the language to URLs that lack one: /stocks/BBCA -> /id/stocks/BBCA.
-// Order: the language the visitor chose before (cookie), then the browser's language, then English.
+/** Pages a logged-out visitor may open; everything else needs an account. */
+const PUBLIC_PAGES = ["login", "register", "forgot-password", "reset-password"];
+/** Must match SESSION_COOKIE in lib/api.ts (not imported: the proxy stays free of server-only code). */
+const SESSION_COOKIE = "idx_session";
+
+// 1. Adds the language to URLs that lack one: /stocks/BBCA -> /id/stocks/BBCA.
+//    Order: the language the visitor chose before (cookie), then the browser's language, then English.
+// 2. Sends logged-out visitors to the login page. This only checks that a session cookie exists;
+//    the backend validates it on every request (an expired one also ends at the login page).
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const hasPrefix = LOCALES.some((l) => pathname === `/${l}` || pathname.startsWith(`/${l}/`));
-  if (hasPrefix) return;
+  const prefix = LOCALES.find((l) => pathname === `/${l}` || pathname.startsWith(`/${l}/`));
+  if (prefix) {
+    const page = pathname.split("/")[2] ?? "";
+    if (PUBLIC_PAGES.includes(page) || request.cookies.has(SESSION_COOKIE)) return;
+    const login = request.nextUrl.clone();
+    login.pathname = `/${prefix}/login`;
+    login.search = pathname === `/${prefix}` ? "" : `?next=${encodeURIComponent(pathname + request.nextUrl.search)}`;
+    return NextResponse.redirect(login);
+  }
 
   request.nextUrl.pathname = `/${preferredLocale(request)}${pathname === "/" ? "" : pathname}`;
   return NextResponse.redirect(request.nextUrl);

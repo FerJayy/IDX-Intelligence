@@ -112,6 +112,45 @@ public class IdxEdgeClient {
             @JsonAlias("no_trade_today") Boolean noTradeToday) {
     }
 
+    /**
+     * Today's market-wide top 10 lists, live during the session. {@code by} = "chg" fills gainers and losers,
+     * "value" fills top (most traded). Costs one request.
+     */
+    public MoversPage movers(String by) {
+        MoversPage body = http.get()
+                .uri(uri -> uri.path("/api/movers").queryParam("by", by).build())
+                .header("X-API-Key", apiKey)
+                .retrieve()
+                .onStatus(status -> status.value() == 429, (request, resp) -> {
+                    throw new QuotaExhaustedException();
+                })
+                .onStatus(HttpStatusCode::isError, (request, resp) -> {
+                    throw new IllegalStateException("IDX Edge returned HTTP " + resp.getStatusCode().value());
+                })
+                .body(MoversPage.class);
+        if (body == null) {
+            throw new IllegalStateException("IDX Edge returned empty movers");
+        }
+        return body;
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record MoversPage(@JsonAlias("gainers") List<Mover> gainers, @JsonAlias("losers") List<Mover> losers,
+                             @JsonAlias("top") List<Mover> top, @JsonAlias("market") MarketState market) {
+    }
+
+    /** @param lot lots traded today (1 lot = 100 shares) */
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record Mover(@JsonAlias("code") String code, @JsonAlias("last_price") BigDecimal lastPrice,
+                        @JsonAlias("change") BigDecimal change, @JsonAlias("change_pct") BigDecimal changePercent,
+                        @JsonAlias("lot") BigDecimal lot, @JsonAlias("value") BigDecimal value) {
+    }
+
+    /** @param status e.g. "open", "break", "closed"; label is the provider's Indonesian session text */
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record MarketState(@JsonAlias("status") String status, @JsonAlias("label") String label) {
+    }
+
     /** The latest insider disclosures for one stock (newest first, one page of 10). Costs one request. */
     public InsiderPage insiders(String ticker) {
         InsiderPage body = http.get()

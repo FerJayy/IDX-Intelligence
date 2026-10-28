@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { AutoRefresh } from "@/components/auto-refresh";
 import { MarketOverview, MOVER_TABS, type MoverTab } from "@/components/market-overview";
 import { getI18n } from "@/lib/i18n";
 
@@ -10,6 +11,8 @@ export default async function Home({ searchParams }: PageProps<"/[lang]">) {
     <main className="flex-1 px-4 py-8 sm:px-8">
       <div className="mx-auto max-w-6xl">
         <p className="text-muted">{t.common.tagline}</p>
+        {/* Today's live lists and breadth refresh themselves during the session. */}
+        <AutoRefresh />
         <div className="mt-6">
           <Suspense fallback={<p className="text-muted">{t.common.loadingMarket}</p>}>{content}</Suspense>
         </div>

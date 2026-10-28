@@ -116,6 +116,7 @@ async function WatchList({ locale }: { locale: Locale }) {
                   )}
                   <form action={toggleWatch}>
                     <input type="hidden" name="ticker" value={ticker} />
+                    <input type="hidden" name="remove" value="1" />
                     <button type="submit" className="rounded-md px-2 py-1 text-xs text-faint hover:bg-chip hover:text-fg"
                       aria-label={`${t.watchlist.remove} ${ticker}`}>
                       ✕ {t.watchlist.remove}

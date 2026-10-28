@@ -4,6 +4,7 @@ import { getI18n } from "@/lib/i18n";
 import { LanguageSwitch } from "./language-switch";
 import { NavLinks, NavList, type NavItem } from "./nav-links";
 import { ThemeSwitch } from "./theme-switch";
+import { UserMenu } from "./user-menu";
 
 export async function SiteHeader() {
   const { locale, t } = await getI18n();
@@ -31,6 +32,9 @@ export async function SiteHeader() {
             </nav>
           </div>
           <div className="flex items-center gap-2">
+            <Suspense fallback={null}>
+              <UserMenu />
+            </Suspense>
             <LanguageSwitch locale={locale} labels={t.language} />
             <ThemeSwitch labels={t.theme} />
           </div>

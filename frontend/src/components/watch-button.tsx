@@ -13,6 +13,7 @@ export function WatchButton({
   return (
     <form action={toggleWatch}>
       <input type="hidden" name="ticker" value={ticker} />
+      {watched && <input type="hidden" name="remove" value="1" />}
       <button
         type="submit"
         aria-pressed={watched}

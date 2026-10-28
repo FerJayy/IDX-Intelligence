@@ -1,7 +1,28 @@
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import type { Reason } from "@/lib/i18n/reasons";
 
 // Server-only: API_BASE_URL has no NEXT_PUBLIC_ prefix, so it never reaches the browser.
 const API_BASE_URL = process.env.API_BASE_URL ?? "http://localhost:8080";
+
+/** httpOnly cookie with the backend session token (set by the login/register Server Actions). */
+export const SESSION_COOKIE = "idx_session";
+/** The logged-in email, shown in the header; httpOnly like the session (no reason for scripts to read it). */
+export const USER_COOKIE = "idx_user";
+
+/**
+ * Every backend call goes through here: it adds the visitor's session token, and a 401 (logged out,
+ * session expired or revoked by a password reset) sends the visitor to the login page.
+ */
+export async function backendFetch(path: string, init?: RequestInit): Promise<Response> {
+  const token = (await cookies()).get(SESSION_COOKIE)?.value;
+  const headers = new Headers(init?.headers);
+  // An explicit header wins: right after login the new token isn't in the request's cookies yet.
+  if (token && !headers.has("Authorization")) headers.set("Authorization", `Bearer ${token}`);
+  const response = await fetch(`${API_BASE_URL}${path}`, { ...init, headers });
+  if (response.status === 401 && !path.startsWith("/api/auth/")) redirect("/login");
+  return response;
+}
 
 // Mirrors the Java records in backend/.../market. Nullable means "not available", not zero.
 export type StockQuote = {
@@ -149,7 +170,7 @@ export async function getStockList(query: StockListQuery): Promise<StockList> {
   params.set("order", query.order ?? "desc");
   params.set("page", String(query.page ?? 1));
   params.set("size", "50");
-  const response = await fetch(`${API_BASE_URL}/api/stocks?${params}`);
+  const response = await backendFetch(`/api/stocks?${params}`);
   if (!response.ok) {
     throw new Error(`Stock list request failed: ${response.status}`);
   }
@@ -182,7 +203,7 @@ export type CandleSeries = Omit<DataLabel, "dataDate"> & {
 async function getCandles(path: string, interval: Interval, range?: string): Promise<CandleSeries | null> {
   const params = new URLSearchParams({ interval });
   if (range) params.set("range", range);
-  const response = await fetch(`${API_BASE_URL}${path}/candles?${params}`);
+  const response = await backendFetch(`${path}/candles?${params}`);
   if (response.status === 404) return null;
   if (!response.ok) {
     throw new Error(`Candles request failed: ${response.status}`);
@@ -201,7 +222,7 @@ export function getIndexCandles(interval: Interval, range?: string) {
 export type IndexDetail = Omit<DataLabel, "dataDate"> & { index: IndexSnapshot | null };
 
 export async function getIndex(): Promise<IndexDetail> {
-  const response = await fetch(`${API_BASE_URL}/api/index/COMPOSITE`);
+  const response = await backendFetch(`/api/index/COMPOSITE`);
   if (!response.ok) {
     throw new Error(`Index request failed: ${response.status}`);
   }
@@ -223,7 +244,7 @@ export type TrackOutcome =
 
 /** Starts broker tracking for a stock (capped by the backend); its first month is fetched in the background. */
 export async function trackStock(ticker: string): Promise<TrackOutcome> {
-  const response = await fetch(`${API_BASE_URL}/api/stocks/${encodeURIComponent(ticker)}/track`, { method: "POST" });
+  const response = await backendFetch(`/api/stocks/${encodeURIComponent(ticker)}/track`, { method: "POST" });
   if (!response.ok) {
     throw new Error(`Track request failed: ${response.status}`);
   }
@@ -258,7 +279,7 @@ export type LiveResult = {
 };
 
 export async function getLivePrice(ticker: string): Promise<LiveResult> {
-  const response = await fetch(`${API_BASE_URL}/api/stocks/${encodeURIComponent(ticker)}/live`);
+  const response = await backendFetch(`/api/stocks/${encodeURIComponent(ticker)}/live`);
   if (!response.ok) {
     throw new Error(`Live price request failed: ${response.status}`);
   }
@@ -356,7 +377,7 @@ export type RadarTrackRecord = {
 };
 
 export async function getRadarTrackRecord(window: RadarWindow): Promise<RadarTrackRecord> {
-  const response = await fetch(`${API_BASE_URL}/api/watchlist/radar/track-record?window=${window}`);
+  const response = await backendFetch(`/api/watchlist/radar/track-record?window=${window}`);
   if (!response.ok) {
     throw new Error(`Radar track record request failed: ${response.status}`);
   }
@@ -364,7 +385,7 @@ export async function getRadarTrackRecord(window: RadarWindow): Promise<RadarTra
 }
 
 export async function getRadar(window: RadarWindow): Promise<Radar> {
-  const response = await fetch(`${API_BASE_URL}/api/watchlist/radar?window=${window}`);
+  const response = await backendFetch(`/api/watchlist/radar?window=${window}`);
   if (!response.ok) {
     throw new Error(`Radar request failed: ${response.status}`);
   }
@@ -409,7 +430,7 @@ export type BrokerProfile = {
 };
 
 export async function getBrokers(): Promise<BrokerListRow[]> {
-  const response = await fetch(`${API_BASE_URL}/api/brokers`);
+  const response = await backendFetch(`/api/brokers`);
   if (!response.ok) {
     throw new Error(`Brokers request failed: ${response.status}`);
   }
@@ -418,7 +439,7 @@ export async function getBrokers(): Promise<BrokerListRow[]> {
 
 /** Returns null for an unknown broker code. */
 export async function getBrokerProfile(code: string, window: BrokerWindow): Promise<BrokerProfile | null> {
-  const response = await fetch(`${API_BASE_URL}/api/brokers/${encodeURIComponent(code)}?window=${window}`);
+  const response = await backendFetch(`/api/brokers/${encodeURIComponent(code)}?window=${window}`);
   if (response.status === 404) return null;
   if (!response.ok) {
     throw new Error(`Broker profile request failed: ${response.status}`);
@@ -426,8 +447,38 @@ export async function getBrokerProfile(code: string, window: BrokerWindow): Prom
   return response.json();
 }
 
+// Mirrors LiveMoversService in backend/.../ingest.
+export type LiveMover = {
+  ticker: string;
+  name: string;
+  hsc: boolean;
+  lastPrice: number | null;
+  change: number | null;
+  changePercent: number | null;
+  value: number | null;
+  thin: boolean; // under Rp1 miliar traded today
+};
+
+export type LiveMovers = {
+  available: boolean; // false outside the session window or once today's close is imported
+  fetchedAt: string | null;
+  marketStatus: string | null;
+  marketLabel: string | null;
+  gainers: LiveMover[];
+  losers: LiveMover[];
+  mostActive: LiveMover[];
+};
+
+export async function getLiveMovers(): Promise<LiveMovers> {
+  const response = await backendFetch(`/api/market/live-movers`);
+  if (!response.ok) {
+    throw new Error(`Live movers request failed: ${response.status}`);
+  }
+  return response.json();
+}
+
 export async function getMarketOverview(): Promise<MarketOverview> {
-  const response = await fetch(`${API_BASE_URL}/api/market/overview`);
+  const response = await backendFetch(`/api/market/overview`);
   if (!response.ok) {
     throw new Error(`Market overview request failed: ${response.status}`);
   }
@@ -457,7 +508,7 @@ export type Insiders = {
 };
 
 export async function getInsiders(ticker: string): Promise<Insiders> {
-  const response = await fetch(`${API_BASE_URL}/api/stocks/${encodeURIComponent(ticker)}/insiders`);
+  const response = await backendFetch(`/api/stocks/${encodeURIComponent(ticker)}/insiders`);
   if (!response.ok) {
     throw new Error(`Insider request failed: ${response.status}`);
   }
@@ -477,7 +528,7 @@ export type StockSummary = {
 };
 
 export async function getStockSummary(ticker: string): Promise<StockSummary> {
-  const response = await fetch(`${API_BASE_URL}/api/stocks/${encodeURIComponent(ticker)}/summary`);
+  const response = await backendFetch(`/api/stocks/${encodeURIComponent(ticker)}/summary`);
   if (!response.ok) {
     throw new Error(`Summary request failed: ${response.status}`);
   }
@@ -486,7 +537,7 @@ export async function getStockSummary(ticker: string): Promise<StockSummary> {
 
 /** Returns null when the backend does not know the ticker. */
 export async function getStock(ticker: string): Promise<StockDetail | null> {
-  const response = await fetch(`${API_BASE_URL}/api/stocks/${encodeURIComponent(ticker)}`);
+  const response = await backendFetch(`/api/stocks/${encodeURIComponent(ticker)}`);
   if (response.status === 404) return null;
   if (!response.ok) {
     throw new Error(`Stock request failed: ${response.status}`);
@@ -499,8 +550,8 @@ export async function getPriceHistory(
   ticker: string,
   range: PriceRange,
 ): Promise<PriceHistory | null> {
-  const response = await fetch(
-    `${API_BASE_URL}/api/stocks/${encodeURIComponent(ticker)}/prices?range=${range}`,
+  const response = await backendFetch(
+    `/api/stocks/${encodeURIComponent(ticker)}/prices?range=${range}`,
   );
   if (response.status === 404) return null;
   if (!response.ok) {
@@ -518,12 +569,77 @@ export async function getBrokerSummary(
   ticker: string,
   range: PriceRange | BrokerPeriod,
 ): Promise<BrokerSummary | null> {
-  const response = await fetch(
-    `${API_BASE_URL}/api/stocks/${encodeURIComponent(ticker)}/brokers?range=${range}`,
+  const response = await backendFetch(
+    `/api/stocks/${encodeURIComponent(ticker)}/brokers?range=${range}`,
   );
   if (response.status === 404) return null;
   if (!response.ok) {
     throw new Error(`Broker summary request failed: ${response.status}`);
   }
   return response.json();
+}
+
+// ---------- accounts (mirrors backend/.../auth) ----------
+
+export type AuthResult = { ok: true; token: string; email: string; expiresAt: string } | { ok: false; error: string };
+
+async function authPost(path: string, body: unknown, clientIp: string | null): Promise<Response> {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (clientIp) headers["X-Client-Ip"] = clientIp;
+  return backendFetch(path, { method: "POST", headers, body: JSON.stringify(body) });
+}
+
+async function errorCode(response: Response): Promise<string> {
+  try {
+    const body = (await response.json()) as { error?: string };
+    return body.error ?? `HTTP_${response.status}`;
+  } catch {
+    return `HTTP_${response.status}`;
+  }
+}
+
+export async function loginAccount(email: string, password: string, clientIp: string | null): Promise<AuthResult> {
+  const response = await authPost("/api/auth/login", { email, password }, clientIp);
+  return response.ok ? { ok: true, ...(await response.json()) } : { ok: false, error: await errorCode(response) };
+}
+
+export async function registerAccount(email: string, password: string, clientIp: string | null): Promise<AuthResult> {
+  const response = await authPost("/api/auth/register", { email, password }, clientIp);
+  return response.ok ? { ok: true, ...(await response.json()) } : { ok: false, error: await errorCode(response) };
+}
+
+export async function logoutAccount(): Promise<void> {
+  await backendFetch("/api/auth/logout", { method: "POST" }).catch(() => undefined);
+}
+
+/** Resolves to an error code, or null when the request was accepted (sent or not, the answer is the same). */
+export async function requestPasswordReset(email: string, language: string, clientIp: string | null): Promise<string | null> {
+  const response = await authPost("/api/auth/forgot", { email, language }, clientIp);
+  return response.ok ? null : errorCode(response);
+}
+
+export async function resetPassword(token: string, password: string): Promise<string | null> {
+  const response = await authPost("/api/auth/reset", { token, password }, null);
+  return response.ok ? null : errorCode(response);
+}
+
+/** The logged-in user's list (oldest first). */
+export async function getMyWatchlist(): Promise<string[]> {
+  const response = await backendFetch("/api/me/watchlist");
+  if (!response.ok) throw new Error(`Watchlist request failed: ${response.status}`);
+  return ((await response.json()) as { tickers: string[] }).tickers;
+}
+
+/** Resolves to an error code (UNKNOWN_STOCK, LIST_FULL) or null on success. */
+export async function changeMyWatchlist(ticker: string, add: boolean): Promise<string | null> {
+  const response = await backendFetch(`/api/me/watchlist/${encodeURIComponent(ticker)}`, { method: add ? "PUT" : "DELETE" });
+  return response.ok ? null : errorCode(response);
+}
+
+export async function mergeMyWatchlist(tickers: string[], token: string): Promise<void> {
+  await backendFetch("/api/me/watchlist/merge", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ tickers }),
+  });
 }

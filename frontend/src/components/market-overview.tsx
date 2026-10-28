@@ -2,8 +2,11 @@ import Link from "next/link";
 import { unstable_rethrow } from "next/navigation";
 import {
   getIndexCandles,
+  getLiveMovers,
   getMarketOverview,
   type CandleSeries,
+  type LiveMover,
+  type LiveMovers,
   type MarketOverview as Overview,
   type StockQuote,
 } from "@/lib/api";
@@ -13,6 +16,7 @@ import type { Dictionary } from "@/lib/i18n/en";
 import type { Locale } from "@/lib/i18n/locales";
 import { DemoBanner } from "./demo-banner";
 import { HscBadge } from "./hsc-badge";
+import { IhsgLive } from "./ihsg-live";
 import { Sparkline } from "./sparkline";
 
 export const MOVER_TABS = ["gainers", "losers", "active"] as const;
@@ -23,11 +27,17 @@ export async function MarketOverview({ tab }: { tab: MoverTab }) {
   const { locale, t, f } = await getI18n();
   let overview: Overview;
   let ihsg: CandleSeries | null;
+  let live: LiveMovers | null;
   try {
-    [overview, ihsg] = await Promise.all([
+    [overview, ihsg, live] = await Promise.all([
       getMarketOverview(),
       // The IHSG card's trend line; if it fails, the card still shows the value.
       getIndexCandles("1d", "3M").catch((error) => {
+        unstable_rethrow(error);
+        return null;
+      }),
+      // Today's lists during the session; without them the end-of-day lists apply.
+      getLiveMovers().catch((error) => {
         unstable_rethrow(error);
         return null;
       }),
@@ -57,12 +67,14 @@ export async function MarketOverview({ tab }: { tab: MoverTab }) {
             <span className="text-xs text-accent group-hover:underline">{t.dashboard.openIhsg}</span>
           </div>
           {index ? (
-            <div className="mt-2 flex flex-wrap items-baseline gap-x-3">
-              <p className="text-3xl font-bold tabular-nums">{f.index(index.value)}</p>
-              <p className={`tabular-nums ${changeColor(index.change)}`}>
-                {f.change(index.change, 2)} ({f.percent(index.changePercent)})
-              </p>
-            </div>
+            <IhsgLive
+              locale={locale}
+              close={index.value}
+              change={index.change}
+              changePercent={index.changePercent}
+              closeDate={index.tradeDate}
+              labels={{ live: t.live.badge, delayed: t.dashboard.ihsgDelayed }}
+            />
           ) : (
             <p className="mt-2 text-sm text-faint">{t.overview.ihsgMissing}</p>
           )}
@@ -75,7 +87,13 @@ export async function MarketOverview({ tab }: { tab: MoverTab }) {
         </Link>
 
         <section className="rounded-xl border border-line bg-card p-5">
-          <p className="text-sm text-muted">{t.overview.breadth}</p>
+          <p className="text-sm text-muted">
+            {t.overview.breadth}
+            {/* Breadth needs every stock's price, which only the evening import has. */}
+            {live?.available && overview.dataDate && (
+              <span className="ml-2 text-xs text-faint">{t.dashboard.closeOf(f.tradingDate(overview.dataDate))}</span>
+            )}
+          </p>
           <div className="mt-2 grid grid-cols-3 text-center">
             <Breadth href={stocksLink("change=up&sort=change&order=desc")} label={t.overview.up} count={overview.advancers} color="text-up" />
             <Breadth href={stocksLink("change=down&sort=change&order=asc")} label={t.overview.down} count={overview.decliners} color="text-down" />
@@ -85,7 +103,7 @@ export async function MarketOverview({ tab }: { tab: MoverTab }) {
         </section>
       </div>
 
-      <Movers overview={overview} tab={tab} locale={locale} t={t} f={f} />
+      <Movers overview={overview} live={live?.available ? live : null} tab={tab} locale={locale} t={t} f={f} />
 
       <p className="text-xs text-faint">
         {t.common.source}: {overview.dataSource}
@@ -101,12 +119,15 @@ export async function MarketOverview({ tab }: { tab: MoverTab }) {
 
 function Movers({
   overview,
+  live,
   tab,
   locale,
   t,
   f,
 }: {
   overview: Overview;
+  /** Today's lists while the market trades; null = show the last end-of-day lists. */
+  live: LiveMovers | null;
   tab: MoverTab;
   locale: Locale;
   t: Dictionary;
@@ -117,7 +138,12 @@ function Movers({
     losers: { stocks: overview.topLosers, seeAll: "sort=change&order=asc" },
     active: { stocks: overview.mostActive, seeAll: "sort=value&order=desc" },
   };
-  const { stocks, seeAll } = lists[tab];
+  const { stocks: endOfDay, seeAll } = lists[tab];
+  const liveLists: Record<MoverTab, LiveMover[]> | null = live
+    ? { gainers: live.gainers, losers: live.losers, active: live.mostActive }
+    : null;
+  // Both kinds of rows share one shape for the table below.
+  const stocks: (StockQuote | LiveMover)[] = liveLists ? liveLists[tab] : endOfDay;
 
   return (
     <section className="rounded-xl border border-line bg-card">
@@ -141,6 +167,19 @@ function Movers({
           {t.dashboard.seeAll}
         </Link>
       </div>
+      <p className="px-4 pt-2 text-xs">
+        {live ? (
+          <>
+            <span className="font-semibold text-up">● {t.live.badge}</span>{" "}
+            <span className="text-faint">
+              {t.dashboard.liveAsOf(f.jakartaTime(live.fetchedAt!))}
+              {live.marketLabel && <> · {live.marketLabel}</>}
+            </span>
+          </>
+        ) : (
+          overview.dataDate && <span className="text-faint">{t.dashboard.closeOf(f.tradingDate(overview.dataDate))}</span>
+        )}
+      </p>
 
       {stocks.length === 0 ? (
         <p className="p-4 text-sm text-faint">{t.overview.noStocks}</p>
@@ -162,6 +201,11 @@ function Movers({
                   <Link href={`/${locale}/stocks/${s.ticker}`} className="group block">
                     <span className="font-mono font-semibold group-hover:text-accent group-hover:underline">{s.ticker}</span>
                     {s.hsc && <HscBadge label={t.hsc.badge} title={t.hsc.title} />}
+                    {"thin" in s && s.thin && (
+                      <span title={t.dashboard.thinTitle} className="ml-2 rounded bg-warn-bg px-1.5 py-0.5 text-[10px] font-semibold text-warn-fg">
+                        {t.dashboard.thin}
+                      </span>
+                    )}
                     <span className="block truncate text-xs text-faint">{s.name}</span>
                   </Link>
                 </td>
@@ -176,7 +220,11 @@ function Movers({
           </tbody>
         </table>
       )}
-      {tab !== "active" && <p className="border-t border-line px-4 py-2 text-xs text-faint">{t.dashboard.moversNote}</p>}
+      {live ? (
+        <p className="border-t border-line px-4 py-2 text-xs text-faint">{t.dashboard.liveNote}</p>
+      ) : (
+        tab !== "active" && <p className="border-t border-line px-4 py-2 text-xs text-faint">{t.dashboard.moversNote}</p>
+      )}
     </section>
   );
 }
