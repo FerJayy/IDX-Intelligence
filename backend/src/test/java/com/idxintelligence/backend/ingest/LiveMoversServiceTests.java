@@ -67,6 +67,9 @@ class LiveMoversServiceTests extends EmbeddedPostgresTest {
 
     private final IdxEdgeClient client = mock(IdxEdgeClient.class);
 
+    @Autowired
+    private com.idxintelligence.backend.market.MarketDataProvider marketData;
+
     @BeforeEach
     void setUp() {
         jdbc.sql("DELETE FROM daily_price WHERE trade_date >= ?").param(Date.valueOf(LocalDate.of(2026, 10, 27))).update();
@@ -88,7 +91,7 @@ class LiveMoversServiceTests extends EmbeddedPostgresTest {
     @Test
     void liveDuringTheSessionCachedTenMinutesAndTagsThinStocks() {
         MovableClock clock = new MovableClock(WEDNESDAY_1400);
-        LiveMoversService service = new LiveMoversService(client, jdbc, clock, 80);
+        LiveMoversService service = new LiveMoversService(client, jdbc, marketData, clock, 80);
 
         LiveMoversService.LiveMovers movers = service.movers();
         assertThat(movers.available()).isTrue();
@@ -96,6 +99,8 @@ class LiveMoversServiceTests extends EmbeddedPostgresTest {
         assertThat(movers.gainers().getFirst().thin()).isFalse();
         assertThat(movers.losers().getFirst().thin()).isTrue();                                                // Rp5 juta traded
         assertThat(movers.mostActive()).hasSize(1);
+        // The trend line ends with today's live price.
+        assertThat(movers.sparklines().get("BBCA")).last().isEqualTo(new BigDecimal("5000"));
 
         clock.advance(Duration.ofMinutes(5));
         service.movers();
@@ -108,7 +113,7 @@ class LiveMoversServiceTests extends EmbeddedPostgresTest {
     @Test
     void offBeforeNineOnWeekendsAndOnceTodaysCloseIsImported() {
         MovableClock clock = new MovableClock(WEDNESDAY_1400.withHour(8));
-        LiveMoversService service = new LiveMoversService(client, jdbc, clock, 80);
+        LiveMoversService service = new LiveMoversService(client, jdbc, marketData, clock, 80);
         assertThat(service.movers().available()).isFalse();
 
         clock.set(WEDNESDAY_1400.plusDays(3));   // Saturday
@@ -124,7 +129,7 @@ class LiveMoversServiceTests extends EmbeddedPostgresTest {
     @Test
     void stopsAtTheDailyBudget() {
         MovableClock clock = new MovableClock(WEDNESDAY_1400);
-        LiveMoversService service = new LiveMoversService(client, jdbc, clock, 2);
+        LiveMoversService service = new LiveMoversService(client, jdbc, marketData, clock, 2);
         service.movers();
         clock.advance(Duration.ofMinutes(11));
         assertThat(service.movers().available()).isTrue();   // keeps showing the last list

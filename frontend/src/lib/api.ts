@@ -467,6 +467,7 @@ export type LiveMovers = {
   gainers: LiveMover[];
   losers: LiveMover[];
   mostActive: LiveMover[];
+  sparklines: Record<string, number[]>; // last 20 closes, ending with today's live price
 };
 
 export async function getLiveMovers(): Promise<LiveMovers> {

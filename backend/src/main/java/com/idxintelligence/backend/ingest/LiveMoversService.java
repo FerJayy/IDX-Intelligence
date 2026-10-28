@@ -1,5 +1,6 @@
 package com.idxintelligence.backend.ingest;
 
+import com.idxintelligence.backend.market.MarketDataProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -15,11 +16,13 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.time.ZonedDateTime;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Stream;
 
 /**
  * Today's top gainers, losers and most traded stocks while today's end-of-day prices aren't imported
@@ -39,6 +42,7 @@ public class LiveMoversService {
 
     private final IdxEdgeClient client;
     private final JdbcClient jdbc;
+    private final MarketDataProvider marketData;
     private final Clock clock;
     private final int dailyBudget;
     private LocalDate budgetDay;
@@ -46,10 +50,11 @@ public class LiveMoversService {
     private LiveMovers cached;
     private Instant cachedAt;
 
-    public LiveMoversService(IdxEdgeClient client, JdbcClient jdbc, Clock clock,
+    public LiveMoversService(IdxEdgeClient client, JdbcClient jdbc, MarketDataProvider marketData, Clock clock,
                              @Value("${live.movers-daily-budget:80}") int dailyBudget) {
         this.client = client;
         this.jdbc = jdbc;
+        this.marketData = marketData;
         this.clock = clock;
         this.dailyBudget = dailyBudget;
     }
@@ -63,9 +68,11 @@ public class LiveMoversService {
      * @param available false outside the window (weekends, before 09:00, or once today's close is imported):
      *                  the end-of-day overview applies then
      */
+    /** @param sparklines per ticker: the last 20 closes, oldest first, ending with today's live price */
     public record LiveMovers(boolean available, OffsetDateTime fetchedAt, String marketStatus, String marketLabel,
-                             List<LiveMover> gainers, List<LiveMover> losers, List<LiveMover> mostActive) {
-        static final LiveMovers NONE = new LiveMovers(false, null, null, null, List.of(), List.of(), List.of());
+                             List<LiveMover> gainers, List<LiveMover> losers, List<LiveMover> mostActive,
+                             Map<String, List<BigDecimal>> sparklines) {
+        static final LiveMovers NONE = new LiveMovers(false, null, null, null, List.of(), List.of(), List.of(), Map.of());
     }
 
     public synchronized LiveMovers movers() {
@@ -108,10 +115,28 @@ public class LiveMoversService {
                 })
                 .list();
         IdxEdgeClient.MarketState market = byChange.market() != null ? byChange.market() : byValue.market();
+        List<LiveMover> gainers = convert(byChange.gainers(), names, hsc);
+        List<LiveMover> losers = convert(byChange.losers(), names, hsc);
+        List<LiveMover> active = convert(byValue.top(), names, hsc);
         return new LiveMovers(true, at, market == null ? null : market.status(), market == null ? null : market.label(),
-                convert(byChange.gainers(), names, hsc), convert(byChange.losers(), names, hsc),
-                convert(byValue.top(), names, hsc));
+                gainers, losers, active, sparklines(Stream.of(gainers, losers, active).flatMap(List::stream).toList()));
     }
+
+    /** The stored closes before today, plus today's live price, so the line ends where the list says. */
+    private Map<String, List<BigDecimal>> sparklines(List<LiveMover> movers) {
+        List<String> tickers = movers.stream().map(LiveMover::ticker).distinct().toList();
+        Map<String, List<BigDecimal>> closes = tickers.isEmpty() ? Map.of() : marketData.recentCloses(tickers, SPARKLINE_DAYS - 1);
+        Map<String, List<BigDecimal>> result = new HashMap<>();
+        for (LiveMover m : movers) {
+            if (result.containsKey(m.ticker())) continue;
+            List<BigDecimal> line = new ArrayList<>(closes.getOrDefault(m.ticker(), List.of()));
+            if (m.lastPrice() != null) line.add(m.lastPrice());
+            result.put(m.ticker(), line);
+        }
+        return result;
+    }
+
+    static final int SPARKLINE_DAYS = 20;
 
     /** Only listed four-letter stocks we know (the provider's list can include rights and warrants). */
     private static List<LiveMover> convert(List<IdxEdgeClient.Mover> movers, Map<String, String> names, Set<String> hsc) {

@@ -210,7 +210,7 @@ function Movers({
                   </Link>
                 </td>
                 <td className="hidden px-4 py-2 sm:table-cell">
-                  <Sparkline values={overview.sparklines[s.ticker] ?? []} />
+                  <Sparkline values={(live ? live.sparklines : overview.sparklines)[s.ticker] ?? []} />
                 </td>
                 <td className="px-4 py-2 text-right">{f.price(s.lastPrice)}</td>
                 <td className={`px-4 py-2 text-right ${changeColor(s.changePercent)}`}>{f.percent(s.changePercent)}</td>
