@@ -2,6 +2,7 @@ package com.idxintelligence.backend.ingest;
 
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /** Manual import triggers; see {@link AdminAuth}. */
@@ -37,11 +38,13 @@ public class AdminImportController {
         return stockListing.sync();
     }
 
+    /** @param ifDue skip when today's import already succeeded (used by the repeated scheduled runs) */
     @PostMapping("/api/admin/import/prices")
     public PriceImportService.ImportResult importPrices(
-            @RequestHeader(value = "X-Admin-Token", required = false) String token) {
+            @RequestHeader(value = "X-Admin-Token", required = false) String token,
+            @RequestParam(defaultValue = "false") boolean ifDue) {
         adminAuth.require(token);
-        return priceImport.importAll();
+        return priceImport.importAll(ifDue);
     }
 
     @PostMapping("/api/admin/import/brokers")

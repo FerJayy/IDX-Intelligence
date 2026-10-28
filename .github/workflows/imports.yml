@@ -9,24 +9,31 @@
 #
 # The repository is public, so its Actions logs are public: the backend's own log is never
 # printed (it names the database host); only the import result is.
-# GitHub cron is UTC (WIB - 7 h) and often starts a few minutes late.
+#
+# GitHub's schedule is unreliable: runs start minutes to hours late and are sometimes dropped (seen:
+# 17:00/19:15/19:30 skipped, one run at 23:30). So several runs are spread over the evening and night,
+# and each does everything still due ("due"): prices (skipped once today's import succeeded), screener
+# picks (1 request, upserted) and broker summaries (only pending days, stops at the quota reserve).
+# Whichever run fires first does the work; the others catch up what's left, e.g. after the 00:00 WIB
+# quota reset. Times avoid the top of the hour, when GitHub is busiest. Cron is UTC (WIB - 7 h).
 name: Data imports
 
 on:
   schedule:
-    - cron: "0 10 * * 1-5"   # 17:00 WIB weekdays: Yahoo daily prices
-    - cron: "15 12 * * 1-5"  # 19:15 WIB weekdays: IDX Edge screener picks
-    - cron: "30 12 * * *"    # 19:30 WIB: broker summaries
-    - cron: "20 17 * * 1-5"  # 00:20 WIB Tue-Sat: screener again, in case 19:15 found no quota left (same picks are upserted)
-    - cron: "30 17 * * *"    # 00:30 WIB: broker summaries (late-published days, refreshed quota)
-    - cron: "0 2 * * 0"      # 09:00 WIB Sunday: IDX stock list
+    - cron: "20 10 * * *"    # 17:20 WIB
+    - cron: "40 12 * * *"    # 19:40 WIB
+    - cron: "40 14 * * *"    # 21:40 WIB
+    - cron: "40 16 * * *"    # 23:40 WIB
+    - cron: "40 18 * * *"    # 01:40 WIB (after the quota reset)
+    - cron: "40 20 * * *"    # 03:40 WIB
+    - cron: "5 2 * * 0"      # 09:05 WIB Sunday: IDX stock list
   workflow_dispatch:
     inputs:
       job:
-        description: Import to run
+        description: Import to run ("due" = everything still due)
         type: choice
-        options: [prices, screener, brokers, stocks]
-        default: prices
+        options: [due, prices, screener, brokers, stocks]
+        default: due
 
 concurrency:
   group: imports
@@ -49,18 +56,17 @@ jobs:
           INPUT_JOB: ${{ inputs.job }}
         run: |
           case "$SCHEDULE" in
-            "0 10 * * 1-5")  job=prices ;;
-            "15 12 * * 1-5"|"20 17 * * 1-5") job=screener ;;
-            "30 12 * * *"|"30 17 * * *") job=brokers ;;
-            "0 2 * * 0")     job=stocks ;;
-            *)               job="$INPUT_JOB" ;;
+            "5 2 * * 0") job=stocks ;;
+            "")          job="$INPUT_JOB" ;;
+            *)           job=due ;;
           esac
           echo "job=$job" >> "$GITHUB_OUTPUT"
           echo "Running: $job"
 
-      # --- Mode 1: run the backend inside this job ---
+      # The import script (both modes) and, in mode 1, the backend's source.
       - uses: actions/checkout@v5
-        if: env.BACKEND_URL == ''
+
+      # --- Mode 1: run the backend inside this job ---
 
       - uses: actions/setup-java@v5
         if: env.BACKEND_URL == ''
@@ -105,9 +111,9 @@ jobs:
         if: env.BACKEND_URL == ''
         env:
           JOB: ${{ steps.pick.outputs.job }}
-        run: |
-          curl -fsS --max-time 8000 -X POST -H "X-Admin-Token: $RUN_ADMIN_TOKEN" "http://localhost:8080/api/admin/import/$JOB"
-          echo
+          BASE: http://localhost:8080
+          TOKEN: ${{ env.RUN_ADMIN_TOKEN }}
+        run: bash .github/workflows/run-imports.sh
 
       # --- Mode 2: call the hosted backend ---
       - name: Wake the hosted backend
@@ -124,6 +130,5 @@ jobs:
         env:
           ADMIN_TOKEN: ${{ secrets.ADMIN_TOKEN }}
           JOB: ${{ steps.pick.outputs.job }}
-        run: |
-          curl -fsS --max-time 8000 -X POST -H "X-Admin-Token: $ADMIN_TOKEN" "$BACKEND_URL/api/admin/import/$JOB"
-          echo
+          BASE: ${{ secrets.BACKEND_URL }}
+        run: TOKEN="$ADMIN_TOKEN" bash .github/workflows/run-imports.sh

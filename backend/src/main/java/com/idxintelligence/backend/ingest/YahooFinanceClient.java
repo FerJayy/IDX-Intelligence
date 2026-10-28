@@ -2,6 +2,7 @@ package com.idxintelligence.backend.ingest;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
@@ -11,7 +12,9 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Reads daily bars from Yahoo Finance's chart endpoint. This endpoint is unofficial and
@@ -86,6 +89,62 @@ public class YahooFinanceClient {
                     price(at(quote.low(), i)), price(close), at(quote.volume(), i)));
         }
         return bars;
+    }
+
+    /** Most symbols the spark endpoint answers in one request (more returns HTTP 400). */
+    public static final int SPARK_BATCH = 20;
+
+    /**
+     * Today's last price and previous close for up to {@link #SPARK_BATCH} symbols in one request (Yahoo's
+     * "spark" endpoint; intraday prices are ~10 minutes delayed). Symbols without data are left out.
+     */
+    public Map<String, SparkQuote> spark(List<String> symbols) {
+        Map<String, SparkResult> body = http.get()
+                .uri("/v8/finance/spark?symbols={symbols}&range=1d&interval=1d", String.join(",", symbols))
+                .retrieve()
+                .body(new ParameterizedTypeReference<Map<String, SparkResult>>() {
+                });
+        Map<String, SparkQuote> result = new HashMap<>();
+        if (body == null) return result;
+        body.forEach((symbol, r) -> {
+            if (r == null || r.close() == null || r.close().isEmpty() || r.timestamp() == null || r.timestamp().isEmpty()) return;
+            BigDecimal price = r.close().getLast();
+            BigDecimal previous = r.chartPreviousClose() != null ? r.chartPreviousClose() : r.previousClose();
+            if (price == null || previous == null) return;
+            result.put(symbol, new SparkQuote(price(price), price(previous), r.timestamp().getLast()));
+        });
+        return result;
+    }
+
+    /**
+     * The latest session's 5-minute prices for up to {@link #SPARK_BATCH} symbols in one request, each
+     * preceded by the previous close. Symbols without data are left out.
+     */
+    public Map<String, List<BigDecimal>> sessionLines(List<String> symbols) {
+        Map<String, SparkResult> body = http.get()
+                .uri("/v8/finance/spark?symbols={symbols}&range=1d&interval=5m", String.join(",", symbols))
+                .retrieve()
+                .body(new ParameterizedTypeReference<Map<String, SparkResult>>() {
+                });
+        Map<String, List<BigDecimal>> result = new HashMap<>();
+        if (body == null) return result;
+        body.forEach((symbol, r) -> {
+            if (r == null || r.close() == null) return;
+            BigDecimal previous = r.chartPreviousClose() != null ? r.chartPreviousClose() : r.previousClose();
+            List<BigDecimal> line = new ArrayList<>();
+            if (previous != null) line.add(price(previous));
+            r.close().stream().filter(java.util.Objects::nonNull).map(YahooFinanceClient::price).forEach(line::add);
+            if (line.size() >= 2) result.put(symbol, line);
+        });
+        return result;
+    }
+
+    /** @param time epoch seconds (UTC) of the last price */
+    public record SparkQuote(BigDecimal price, BigDecimal previousClose, long time) {
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    record SparkResult(List<Long> timestamp, List<BigDecimal> close, BigDecimal chartPreviousClose, BigDecimal previousClose) {
     }
 
     /** One intraday candle; {@code time} is epoch seconds (UTC) of the candle start. */

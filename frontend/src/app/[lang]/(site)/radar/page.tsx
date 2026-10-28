@@ -533,6 +533,9 @@ async function TrackRecordSection({ window }: { window: RadarWindow }) {
       <div>
         <h2 className="text-lg font-semibold">{r.title}</h2>
         <p className="mt-1 max-w-3xl text-sm text-muted">{r.intro(f.fraction(record.roundTripCost))}</p>
+        <p className="mt-2 max-w-3xl rounded-lg border border-info-line bg-info-bg px-3 py-2 text-sm text-info-fg">
+          {r.twoKinds(record.windowDays)}
+        </p>
         <p className="mt-1 text-xs text-faint">
           {r.period(f.tradingDate(record.from), f.tradingDate(record.to), record.signalDays, record.stocks)}
         </p>

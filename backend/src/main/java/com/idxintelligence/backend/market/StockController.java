@@ -1,5 +1,9 @@
 package com.idxintelligence.backend.market;
 
+import java.util.Arrays;
+import java.util.Locale;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -32,11 +36,15 @@ public class StockController {
                           @RequestParam(required = false) String sector,
                           @RequestParam(required = false) String change,
                           @RequestParam(required = false) String hsc,
+                          @RequestParam(required = false) String tickers,
                           @RequestParam(defaultValue = "marketCap") String sort,
                           @RequestParam(defaultValue = "desc") String order,
                           @RequestParam(defaultValue = "1") int page,
                           @RequestParam(defaultValue = "50") int size) {
-        return marketService.list(search, sector, change, hsc, sort, "asc".equalsIgnoreCase(order), page, size);
+        Set<String> only = tickers == null || tickers.isBlank() ? null
+                : Arrays.stream(tickers.split(",")).map(t -> t.trim().toUpperCase(Locale.ROOT)).filter(t -> !t.isEmpty())
+                        .limit(MarketService.MAX_PAGE_SIZE).collect(Collectors.toSet());
+        return marketService.list(search, sector, change, hsc, only, sort, "asc".equalsIgnoreCase(order), page, size);
     }
 
     @GetMapping("/{ticker}")

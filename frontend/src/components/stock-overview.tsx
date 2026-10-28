@@ -91,8 +91,9 @@ export async function StockOverview({
     <div className="space-y-6">
       {stock.demo && <DemoBanner notice={t.common.demoNotice} />}
 
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div>
+      {/* Name left, price right, also on phones (no wrapping: the name gives way instead). */}
+      <header className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
           <h1 className="font-mono text-3xl font-bold">
             {quote.ticker}
             {quote.hsc && <HscBadge label={t.hsc.badge} title={t.hsc.title} />}

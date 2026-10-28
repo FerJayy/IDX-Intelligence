@@ -1,5 +1,7 @@
 package com.idxintelligence.backend.market;
 
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -13,6 +15,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.function.Function;
 
 @Service
@@ -28,9 +31,21 @@ public class MarketService {
     static final int MAX_PAGE_SIZE = 200;
 
     private final MarketDataProvider provider;
+    /** Today's prices while stored data is still yesterday's; absent in demo mode and plain tests. */
+    private final ObjectProvider<TodayPriceSource> todayPrices;
+    /** Today's (latest session's) price lines for the dashboard's mini charts; absent in demo mode and tests. */
+    private final ObjectProvider<IntradayLineSource> sessionLines;
 
     public MarketService(MarketDataProvider provider) {
+        this(provider, null, null);
+    }
+
+    @Autowired
+    public MarketService(MarketDataProvider provider, ObjectProvider<TodayPriceSource> todayPrices,
+                         ObjectProvider<IntradayLineSource> sessionLines) {
         this.provider = provider;
+        this.todayPrices = todayPrices;
+        this.sessionLines = sessionLines;
     }
 
     public MarketOverview overview() {
@@ -59,7 +74,7 @@ public class MarketService {
 
         List<String> shown = java.util.stream.Stream.of(gainers, losers, mostActive)
                 .flatMap(List::stream).map(StockQuote::ticker).distinct().toList();
-        Map<String, List<BigDecimal>> sparklines = provider.recentCloses(shown, SPARKLINE_DAYS);
+        Map<String, List<BigDecimal>> sparklines = miniCharts(shown);
 
         int advancers = countBySign(quotes, 1);
         int decliners = countBySign(quotes, -1);
@@ -100,7 +115,16 @@ public class MarketService {
      */
     public StockList list(String search, String sector, String change, String hsc, String sort, boolean ascending,
                           int page, int size) {
-        List<StockQuote> quotes = provider.quotes();
+        return list(search, sector, change, hsc, null, sort, ascending, page, size);
+    }
+
+    /** @param tickers only these stocks (e.g. a user's list); null = all */
+    public StockList list(String search, String sector, String change, String hsc, java.util.Set<String> tickers,
+                          String sort, boolean ascending, int page, int size) {
+        Optional<TodayPriceSource.TodayPrices> today = provider.isDemo() || todayPrices == null
+                ? Optional.empty()
+                : Optional.ofNullable(todayPrices.getIfAvailable()).flatMap(TodayPriceSource::todayPrices);
+        List<StockQuote> quotes = today.map(t -> withTodayPrices(provider.quotes(), t)).orElseGet(provider::quotes);
         List<String> sectors = quotes.stream().map(StockQuote::sector).filter(Objects::nonNull)
                 .distinct().sorted().toList();
 
@@ -112,6 +136,7 @@ public class MarketService {
                 .filter(q -> sector == null || sector.isBlank() || sector.equals(q.sector()))
                 .filter(q -> change == null || change.isBlank() || matchesChange(q, change))
                 .filter(q -> hsc == null || hsc.isBlank() || matchesHsc(q, hsc))
+                .filter(q -> tickers == null || tickers.contains(q.ticker()))
                 .sorted(comparator(sort, ascending))
                 .toList();
 
@@ -121,7 +146,35 @@ public class MarketService {
         List<StockQuote> pageItems = matching.subList(fromIndex, Math.min(fromIndex + pageSize, matching.size()));
 
         return new StockList(provider.isDemo(), provider.sourceName(), notice(), OffsetDateTime.now(JAKARTA),
-                dataDate(provider.latestTradingDate()), matching.size(), pageIndex, pageSize, sectors, pageItems);
+                dataDate(provider.latestTradingDate()), today.map(TodayPriceSource.TodayPrices::asOf).orElse(null),
+                matching.size(), pageIndex, pageSize, sectors, pageItems);
+    }
+
+    /**
+     * The dashboard lists are about one day, so their mini charts show that day: the latest session's
+     * line starting at the previous close (its colour then matches the day's change). Stocks Yahoo has no
+     * line for, and demo mode, fall back to the last 20 closes.
+     */
+    private Map<String, List<BigDecimal>> miniCharts(List<String> tickers) {
+        IntradayLineSource source = provider.isDemo() || sessionLines == null ? null : sessionLines.getIfAvailable();
+        Map<String, List<BigDecimal>> lines = new java.util.HashMap<>(source == null ? Map.of() : source.sessionLines(tickers));
+        List<String> missing = tickers.stream().filter(t -> !lines.containsKey(t)).toList();
+        if (!missing.isEmpty()) lines.putAll(provider.recentCloses(missing, SPARKLINE_DAYS));
+        return lines;
+    }
+
+    /**
+     * Stocks whose stored bar is older than today get today's price and change (volume and value stay
+     * unknown until the evening import, rather than showing yesterday's as today's).
+     */
+    public static List<StockQuote> withTodayPrices(List<StockQuote> quotes, TodayPriceSource.TodayPrices today) {
+        LocalDate date = today.asOf().toLocalDate();
+        return quotes.stream().map(q -> {
+            TodayPriceSource.TodayPrice p = today.prices().get(q.ticker());
+            if (p == null || (q.tradeDate() != null && !q.tradeDate().isBefore(date))) return q;
+            return StockQuote.of(q.ticker(), q.name(), q.sector(), date, p.price(), p.previousClose(), null,
+                    q.marketCap(), q.brokerTracked(), q.hsc());
+        }).toList();
     }
 
     private static Comparator<StockQuote> comparator(String sort, boolean ascending) {

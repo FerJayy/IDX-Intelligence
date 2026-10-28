@@ -143,6 +143,7 @@ export const STOCK_SORTS = ["marketCap", "change", "value", "volume", "price", "
 export type StockSort = (typeof STOCK_SORTS)[number];
 
 export type StockList = DataLabel & {
+  todayPricesAsOf: string | null; // set: prices/changes are today's (Yahoo) until the evening import
   total: number; // matching stocks across all pages
   page: number;
   size: number;
@@ -155,6 +156,8 @@ export type StockListQuery = {
   sector?: string;
   change?: "up" | "down" | "flat";
   hsc?: "only" | "exclude";
+  /** Only these stocks (a user's list). */
+  tickers?: string[];
   sort?: StockSort;
   order?: "asc" | "desc";
   page?: number;
@@ -166,6 +169,7 @@ export async function getStockList(query: StockListQuery): Promise<StockList> {
   if (query.sector) params.set("sector", query.sector);
   if (query.change) params.set("change", query.change);
   if (query.hsc) params.set("hsc", query.hsc);
+  if (query.tickers?.length) params.set("tickers", query.tickers.join(","));
   params.set("sort", query.sort ?? "marketCap");
   params.set("order", query.order ?? "desc");
   params.set("page", String(query.page ?? 1));

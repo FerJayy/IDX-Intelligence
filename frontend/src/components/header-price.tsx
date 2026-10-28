@@ -35,8 +35,8 @@ export function HeaderPrice({
   const closedToday = state.result?.status === "CLOSED_TODAY";
 
   return (
-    <div className="text-right">
-      <p className="text-3xl font-bold tabular-nums">{f.price(q ? q.lastPrice : close)}</p>
+    <div className="shrink-0 text-right">
+      <p className="text-2xl font-bold tabular-nums sm:text-3xl">{f.price(q ? q.lastPrice : close)}</p>
       <p className={`tabular-nums ${changeColor(q ? q.change : change)}`}>
         {f.change(q ? q.change : change)} ({f.percent(q ? q.changePercent : changePercent)})
       </p>

@@ -58,6 +58,27 @@ public class PriceImportService {
     }
 
     public ImportResult importAll() {
+        return importAll(false);
+    }
+
+    /**
+     * @param onlyIfDue skip when a successful import already finished after 17:00 today (scheduled runs
+     *                  fire several times per evening so that a delayed or dropped one is caught up; only
+     *                  the first of them needs to fetch the ~960 stocks)
+     */
+    public ImportResult importAll(boolean onlyIfDue) {
+        if (onlyIfDue) {
+            Instant last = repository.lastSuccessfulRun(SOURCE);
+            ZonedDateTime now = clock.instant().atZone(YahooFinanceClient.JAKARTA);
+            Instant dueFrom = now.toLocalDate().atTime(DAY_FINAL_AFTER).atZone(YahooFinanceClient.JAKARTA).toInstant();
+            if (last != null && !now.toLocalTime().isBefore(DAY_FINAL_AFTER) && !last.isBefore(dueFrom)) {
+                return ImportResult.nothingDue();
+            }
+            if (last != null && now.toLocalTime().isBefore(DAY_FINAL_AFTER)
+                    && !last.isBefore(now.toLocalDate().minusDays(1).atTime(DAY_FINAL_AFTER).atZone(YahooFinanceClient.JAKARTA).toInstant())) {
+                return ImportResult.nothingDue();   // after midnight: yesterday evening's run already has the day
+            }
+        }
         if (!running.compareAndSet(false, true)) {
             return ImportResult.skippedBecauseRunning();
         }
@@ -166,9 +187,20 @@ public class PriceImportService {
      */
     public record ImportResult(boolean alreadyRunning, int stocks, int stocksOk, int stocksFailed,
                                int stocksNotFound, int stocksSkipped,
-                               int rowsWritten, LocalDate upToDate, List<String> failures) {
+                               int rowsWritten, LocalDate upToDate, List<String> failures, boolean alreadyDone) {
+        ImportResult(boolean alreadyRunning, int stocks, int stocksOk, int stocksFailed, int stocksNotFound,
+                     int stocksSkipped, int rowsWritten, LocalDate upToDate, List<String> failures) {
+            this(alreadyRunning, stocks, stocksOk, stocksFailed, stocksNotFound, stocksSkipped, rowsWritten, upToDate,
+                    failures, false);
+        }
+
         static ImportResult skippedBecauseRunning() {
             return new ImportResult(true, 0, 0, 0, 0, 0, 0, null, List.of());
+        }
+
+        /** Nothing to do: today's import already succeeded (onlyIfDue). */
+        static ImportResult nothingDue() {
+            return new ImportResult(false, 0, 0, 0, 0, 0, 0, null, List.of(), true);
         }
     }
 }

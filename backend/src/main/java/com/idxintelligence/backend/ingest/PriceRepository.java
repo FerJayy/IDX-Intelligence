@@ -130,6 +130,16 @@ public class PriceRepository {
                 .single();
     }
 
+    /** When the last run of this source that stored any stock finished, or null. */
+    public Instant lastSuccessfulRun(String source) {
+        return jdbc.sql("SELECT max(finished_at) FROM import_run WHERE source = ? AND finished_at IS NOT NULL AND stocks_ok > 0")
+                .param(source)
+                .query(Timestamp.class)
+                .optional()
+                .map(Timestamp::toInstant)
+                .orElse(null);
+    }
+
     public void finishRun(long id, Instant finishedAt, int ok, int failed, int rows, String message) {
         jdbc.sql("""
                 UPDATE import_run

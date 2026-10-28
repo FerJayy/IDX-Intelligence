@@ -76,8 +76,11 @@ public class BrokerAnalysisService {
         return build(quote, code, from, to, tradingDays, rows);
     }
 
-    private BrokerSummary build(StockQuote quote, String rangeCode, LocalDate from, LocalDate to, int tradingDays,
+    private BrokerSummary build(StockQuote quote, String rangeCode, LocalDate from, LocalDate requestedTo, int tradingDays,
                                 List<BrokerDailyActivity> rows) {
+        // The period ends on the last day that has broker data, not on the latest price day: the label
+        // must not claim a day (e.g. today) whose broker summary isn't imported yet.
+        LocalDate to = rows.stream().map(BrokerDailyActivity::date).max(LocalDate::compareTo).orElse(requestedTo);
 
         List<BrokerPosition> positions = positions(rows);
         List<BrokerPosition> topBuyers = positions.stream()

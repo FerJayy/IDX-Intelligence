@@ -3,7 +3,7 @@ import { unstable_rethrow } from "next/navigation";
 import { Suspense } from "react";
 import { HscBadge } from "@/components/hsc-badge";
 import { addToWatchlist, toggleWatch } from "@/lib/actions";
-import { getRadar, getStock, type FlowStatus, type Radar, type StockQuote } from "@/lib/api";
+import { getRadar, getStockList, type FlowStatus, type Radar, type StockQuote } from "@/lib/api";
 import { changeColor, type Format } from "@/lib/format";
 import { getI18n } from "@/lib/i18n";
 import type { Dictionary } from "@/lib/i18n/en";
@@ -84,9 +84,14 @@ async function WatchList({ locale }: { locale: Locale }) {
     console.error(error);
     return null;
   });
+  // One request for the whole list; before the evening import it carries today's prices (Yahoo).
   let quotes: (StockQuote | null)[];
+  let todayAsOf: string | null = null;
   try {
-    quotes = (await Promise.all(tickers.map((ticker) => getStock(ticker)))).map((detail) => detail?.quote ?? null);
+    const list = await getStockList({ tickers, sort: "ticker" });
+    const byTicker = new Map(list.stocks.map((q) => [q.ticker, q]));
+    quotes = tickers.map((ticker) => byTicker.get(ticker) ?? null);
+    todayAsOf = list.todayPricesAsOf;
   } catch (error) {
     unstable_rethrow(error);
     console.error(error);
@@ -95,34 +100,28 @@ async function WatchList({ locale }: { locale: Locale }) {
 
   return (
     <section>
-      <p className="mb-2 text-xs text-faint">{t.watchlist.count(tickers.length, WATCHLIST_MAX)}</p>
+      <p className="mb-2 text-xs text-faint">
+        {t.watchlist.count(tickers.length, WATCHLIST_MAX)}
+        {todayAsOf && <> · {t.watchlist.todayAsOf(f.jakartaTime(todayAsOf))}</>}
+      </p>
       <ul className="space-y-2">
         {tickers.map((ticker, i) => {
           const quote = quotes[i];
           return (
             <li key={ticker} className="rounded-xl border border-line bg-card p-4">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <Link href={`/${locale}/stocks/${ticker}`} className="group min-w-0">
+              {/* Code and name left, price right on every screen; a long name is cut with "…". */}
+              <div className="flex items-start justify-between gap-3">
+                <Link href={`/${locale}/stocks/${ticker}`} className="group min-w-0 flex-1">
                   <span className="font-mono text-lg font-bold group-hover:text-accent group-hover:underline">{ticker}</span>
                   {quote?.hsc && <HscBadge label={t.hsc.badge} title={t.hsc.title} />}
-                  {quote && <span className="ml-2 text-sm text-muted">{quote.name}</span>}
+                  {quote && <span className="block truncate text-sm text-muted">{quote.name}</span>}
                 </Link>
-                <div className="flex items-start gap-3">
-                  {quote && (
-                    <div className="text-right tabular-nums">
-                      <p className="font-semibold">{f.price(quote.lastPrice)}</p>
-                      <p className={`text-sm ${changeColor(quote.changePercent)}`}>{f.percent(quote.changePercent)}</p>
-                    </div>
-                  )}
-                  <form action={toggleWatch}>
-                    <input type="hidden" name="ticker" value={ticker} />
-                    <input type="hidden" name="remove" value="1" />
-                    <button type="submit" className="rounded-md px-2 py-1 text-xs text-faint hover:bg-chip hover:text-fg"
-                      aria-label={`${t.watchlist.remove} ${ticker}`}>
-                      ✕ {t.watchlist.remove}
-                    </button>
-                  </form>
-                </div>
+                {quote && (
+                  <div className="shrink-0 text-right tabular-nums">
+                    <p className="font-semibold">{f.price(quote.lastPrice)}</p>
+                    <p className={`text-sm ${changeColor(quote.changePercent)}`}>{f.percent(quote.changePercent)}</p>
+                  </div>
+                )}
               </div>
               <div className="mt-2 text-sm">
                 {quote && !quote.brokerTracked ? (
@@ -133,6 +132,14 @@ async function WatchList({ locale }: { locale: Locale }) {
                   </Suspense>
                 )}
               </div>
+              <form action={toggleWatch} className="mt-2 flex justify-end">
+                <input type="hidden" name="ticker" value={ticker} />
+                <input type="hidden" name="remove" value="1" />
+                <button type="submit" className="rounded-md border border-line px-2 py-1 text-xs text-faint hover:bg-chip hover:text-fg"
+                  aria-label={`${t.watchlist.remove} ${ticker}`}>
+                  ✕ {t.watchlist.remove}
+                </button>
+              </form>
             </li>
           );
         })}

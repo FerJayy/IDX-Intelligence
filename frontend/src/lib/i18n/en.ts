@@ -105,6 +105,8 @@ export const en = {
       title: "How the Radar would have done",
       intro: (cost: string) =>
         `The Radar replayed on every past broker day, using only the data known that evening. Each "trade" buys at the next day's open and sells at the close 1, 3 or 5 trading days later, after ${cost} fees, and is compared with IHSG over the same days.`,
+      twoKinds: (window: number) =>
+        `Two different "days": the 5 / 10 / 20-day buttons set how much broker history the Radar looks at when it scores a stock (now: the last ${window} days). The +1 / +3 / +5 columns are how long each simulated trade is held after the pick.`,
       group: "Group",
       groups: {
         TOP_PICKS: (n: number) => `Top ${n} by score each day`,
@@ -123,7 +125,7 @@ export const en = {
       tooLittle: (days: number) =>
         `Only ${days} broker days so far: far too few to tell luck from skill. Treat the Radar as unproven until there are several months.`,
       summary: (top: string, all: string) =>
-        `So far, the top picks did ${top} vs IHSG over 5 days, against ${all} for all tracked stocks.`,
+        `So far, buying the daily top picks and holding them 5 trading days did ${top} vs IHSG; buying every tracked stock did ${all}.`,
       better: "That is better than the baseline — so far.",
       worse: "That is worse than the baseline: the score has not helped so far.",
       teaser: (top: string, days: number) => `Measured so far: top picks ${top} vs IHSG after 5 days (${days} days of history).`,
@@ -216,6 +218,7 @@ export const en = {
     unknown: (ticker: string) => `${ticker} isn't a listed stock we know.`,
     full: (max: number) => `Your list is full (${max} stocks). Remove one first.`,
     count: (n: number, max: number) => `${n} of ${max}`,
+    todayAsOf: (time: string) => `prices today, as of ${time} (Yahoo)`,
     brokerFlow: "Broker flow (10 days)",
     loadingBrokers: "Loading broker flow…",
     notTracked: "No broker data for this stock yet. Open it and press \"Load broker data\".",
@@ -315,7 +318,7 @@ export const en = {
     openIhsg: "Open IHSG chart →",
     seeAll: "See all →",
     tabs: { gainers: "Top gainers", losers: "Top losers", active: "Most active" },
-    trend: "20 days",
+    trend: "Today",
     breadthHint: "Click a number to list those stocks",
     moversNote: "Gainers and losers only count stocks with at least Rp1 miliar traded that day.",
     liveAsOf: (time: string) => `Today, as of ${time}`,
@@ -373,6 +376,8 @@ export const en = {
     },
     order: { desc: "High to low", asc: "Low to high" },
     found: (total: number) => `${total} stocks`,
+    todayPrices: (time: string) =>
+      `Prices and changes are today's, as of ${time} (Yahoo, about 10 minutes delayed while the market trades). Traded value fills in after the evening import.`,
     stock: "Stock",
     sector: "Sector",
     last: "Last",

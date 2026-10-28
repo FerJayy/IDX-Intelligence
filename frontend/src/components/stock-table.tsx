@@ -80,6 +80,11 @@ export async function StockTable({ query }: { query: StockListQuery }) {
       </form>
 
       <p className="text-sm text-muted">{t.stockList.found(list.total)}</p>
+      {list.todayPricesAsOf && (
+        <p className="rounded-lg border border-info-line bg-info-bg px-3 py-2 text-xs text-info-fg">
+          {t.stockList.todayPrices(f.jakartaTime(list.todayPricesAsOf))}
+        </p>
+      )}
 
       {list.stocks.length === 0 ? (
         <p className="rounded-xl border border-line bg-card p-6 text-sm text-faint">{t.stockList.noMatch}</p>

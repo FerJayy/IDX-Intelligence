@@ -148,8 +148,22 @@ public class RadarService {
         rows.sort(Comparator.comparing((RadarRow r) -> r.excludedBecause() != null)
                 .thenComparing(RadarRow::score, Comparator.reverseOrder())
                 .thenComparing(RadarRow::ticker));
-        return new Radar(OffsetDateTime.now(BacktestService.JAKARTA), latestBrokerDay, window, names.size(), rows,
+        return new Radar(OffsetDateTime.now(BacktestService.JAKARTA), typicalBrokerDay(), window, names.size(), rows,
                 streaks.stream().limit(MAX_STREAKS).toList(), screener());
+    }
+
+    /**
+     * The broker day most tracked stocks have reached (the median of each stock's latest day), for the
+     * page's "data through" label: the newest day of any single stock would overstate it while the
+     * import is catching up.
+     */
+    private LocalDate typicalBrokerDay() {
+        List<LocalDate> latest = jdbc.sql("""
+                SELECT max(d.trade_date) FROM broker_import_day d
+                JOIN stock s ON s.ticker = d.ticker AND s.broker_tracked AND s.active
+                WHERE d.flow = 'ALL' GROUP BY d.ticker ORDER BY 1
+                """).query(LocalDate.class).list();
+        return latest.isEmpty() ? null : latest.get(latest.size() / 2);
     }
 
     Map<String, List<BrokerDailyActivity>> activity(LocalDate from) {

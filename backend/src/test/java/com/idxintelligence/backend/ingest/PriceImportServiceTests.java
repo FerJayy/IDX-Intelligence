@@ -47,6 +47,25 @@ class PriceImportServiceTests extends EmbeddedPostgresTest {
     }
 
     @Test
+    void ifDueSkipsOnceTodaysImportSucceeded() {
+        ZonedDateTime evening = DURING_TRADING.withHour(19).withMinute(40);
+        ZonedDateTime afterFive = DURING_TRADING.withHour(17).withMinute(30);
+        // A successful run that finished after 17:00 today: later scheduled runs have nothing to do.
+        long run = repository.startRun("YAHOO", afterFive.minusMinutes(20).toInstant());
+        repository.finishRun(run, afterFive.toInstant(), 900, 0, 900, null);
+
+        PriceImportService.ImportResult result = service(evening).importAll(true);
+
+        assertThat(result.alreadyDone()).isTrue();
+        org.mockito.Mockito.verifyNoInteractions(yahoo);
+        // After 17:00, only a run from this evening counts: yesterday evening's run means today is still due.
+        jdbc.sql("DELETE FROM import_run").update();
+        long old = repository.startRun("YAHOO", afterFive.minusDays(1).toInstant());
+        repository.finishRun(old, afterFive.minusDays(1).toInstant(), 900, 0, 900, null);
+        assertThat(service(DURING_TRADING.withHour(23)).importAll(true).alreadyDone()).isFalse();
+    }
+
+    @Test
     void firstRunBackfillsAndSkipsUnfinishedAndPlaceholderBars() {
         when(yahoo.dailyBars(anyString(), any(), any())).thenReturn(List.of(
                 bar(FRIDAY.minusDays(1), "5175", 286_928_500L),

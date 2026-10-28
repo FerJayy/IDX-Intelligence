@@ -3,6 +3,7 @@ package com.idxintelligence.backend.ingest;
 import com.idxintelligence.backend.market.MarketDataProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
@@ -41,6 +42,7 @@ public class LiveMoversService {
     private final IdxEdgeClient client;
     private final JdbcClient jdbc;
     private final MarketDataProvider marketData;
+    private final SessionLinesService sessionLines;
     private final Clock clock;
     private final int dailyBudget;
     private LocalDate budgetDay;
@@ -50,13 +52,20 @@ public class LiveMoversService {
     /** A weekday the provider reported as closed (an exchange holiday): no more requests that day. */
     private LocalDate closedDay;
 
-    public LiveMoversService(IdxEdgeClient client, JdbcClient jdbc, MarketDataProvider marketData, Clock clock,
+    @Autowired
+    public LiveMoversService(IdxEdgeClient client, JdbcClient jdbc, MarketDataProvider marketData,
+                             SessionLinesService sessionLines, Clock clock,
                              @Value("${live.movers-daily-budget:80}") int dailyBudget) {
         this.client = client;
         this.jdbc = jdbc;
         this.marketData = marketData;
+        this.sessionLines = sessionLines;
         this.clock = clock;
         this.dailyBudget = dailyBudget;
+    }
+
+    LiveMoversService(IdxEdgeClient client, JdbcClient jdbc, MarketDataProvider marketData, Clock clock, int dailyBudget) {
+        this(client, jdbc, marketData, null, clock, dailyBudget);
     }
 
     /** @param thin less than Rp1 miliar traded today: the move may not mean much */
@@ -138,10 +147,17 @@ public class LiveMoversService {
     /** The stored closes before today, plus today's live price, so the line ends where the list says. */
     private Map<String, List<BigDecimal>> sparklines(List<LiveMover> movers) {
         List<String> tickers = movers.stream().map(LiveMover::ticker).distinct().toList();
+        // Today's line (from yesterday's close), so a gainer's chart is green; 20 closes as a fallback.
+        Map<String, List<BigDecimal>> today = sessionLines == null || tickers.isEmpty() ? Map.of() : sessionLines.sessionLines(tickers);
+        if (today.keySet().containsAll(tickers)) return today;
         Map<String, List<BigDecimal>> closes = tickers.isEmpty() ? Map.of() : marketData.recentCloses(tickers, SPARKLINE_DAYS - 1);
         Map<String, List<BigDecimal>> result = new HashMap<>();
         for (LiveMover m : movers) {
             if (result.containsKey(m.ticker())) continue;
+            if (today.containsKey(m.ticker())) {
+                result.put(m.ticker(), today.get(m.ticker()));
+                continue;
+            }
             List<BigDecimal> line = new ArrayList<>(closes.getOrDefault(m.ticker(), List.of()));
             if (m.lastPrice() != null) line.add(m.lastPrice());
             result.put(m.ticker(), line);

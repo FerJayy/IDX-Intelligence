@@ -100,6 +100,8 @@ export const id: Dictionary = {
       title: "Seandainya Radar dipakai sebelumnya",
       intro: (cost: string) =>
         `Radar diputar ulang di setiap hari data broker sebelumnya, hanya dengan data yang sudah diketahui malam itu. Tiap "transaksi" membeli di harga pembukaan hari berikutnya dan menjual di harga penutupan 1, 3 atau 5 hari bursa kemudian, setelah biaya ${cost}, lalu dibandingkan dengan IHSG di hari yang sama.`,
+      twoKinds: (window: number) =>
+        `Ada dua jenis "hari": tombol 5 / 10 / 20 hari mengatur berapa lama riwayat broker yang dilihat Radar saat memberi skor (sekarang: ${window} hari terakhir). Kolom +1 / +3 / +5 adalah berapa lama tiap transaksi simulasi ditahan setelah dipilih.`,
       group: "Kelompok",
       groups: {
         TOP_PICKS: (n: number) => `${n} skor teratas tiap hari`,
@@ -118,7 +120,7 @@ export const id: Dictionary = {
       tooLittle: (days: number) =>
         `Baru ${days} hari data broker: terlalu sedikit untuk membedakan untung-untungan dari keahlian. Anggap Radar belum terbukti sampai ada beberapa bulan data.`,
       summary: (top: string, all: string) =>
-        `Sejauh ini, pilihan teratas menghasilkan ${top} vs IHSG dalam 5 hari, dibanding ${all} untuk semua saham dipantau.`,
+        `Sejauh ini, membeli pilihan teratas tiap hari lalu menahannya 5 hari bursa menghasilkan ${top} vs IHSG; membeli semua saham dipantau menghasilkan ${all}.`,
       better: "Itu lebih baik dari pembanding — sejauh ini.",
       worse: "Itu lebih buruk dari pembanding: skor belum membantu sejauh ini.",
       teaser: (top: string, days: number) => `Terukur sejauh ini: pilihan teratas ${top} vs IHSG setelah 5 hari (${days} hari data).`,
@@ -211,6 +213,7 @@ export const id: Dictionary = {
     unknown: (ticker: string) => `${ticker} bukan saham tercatat yang kami kenal.`,
     full: (max: number) => `Daftarmu sudah penuh (${max} saham). Hapus satu dulu.`,
     count: (n: number, max: number) => `${n} dari ${max}`,
+    todayAsOf: (time: string) => `harga hari ini, per ${time} (Yahoo)`,
     brokerFlow: "Arus broker (10 hari)",
     loadingBrokers: "Memuat arus broker…",
     notTracked: "Belum ada data broker untuk saham ini. Buka sahamnya lalu tekan \"Muat data broker\".",
@@ -310,7 +313,7 @@ export const id: Dictionary = {
     openIhsg: "Buka grafik IHSG →",
     seeAll: "Lihat semua →",
     tabs: { gainers: "Kenaikan terbesar", losers: "Penurunan terbesar", active: "Teraktif" },
-    trend: "20 hari",
+    trend: "Hari ini",
     breadthHint: "Klik angka untuk melihat daftar sahamnya",
     moversNote: "Kenaikan dan penurunan hanya menghitung saham dengan transaksi minimal Rp1 miliar hari itu.",
     liveAsOf: (time: string) => `Hari ini, per ${time}`,
@@ -368,6 +371,8 @@ export const id: Dictionary = {
     },
     order: { desc: "Tertinggi dulu", asc: "Terendah dulu" },
     found: (total: number) => `${total} saham`,
+    todayPrices: (time: string) =>
+      `Harga dan perubahan adalah hari ini, per ${time} (Yahoo, tertunda sekitar 10 menit selama pasar buka). Nilai transaksi terisi setelah impor malam.`,
     stock: "Saham",
     sector: "Sektor",
     last: "Terakhir",
