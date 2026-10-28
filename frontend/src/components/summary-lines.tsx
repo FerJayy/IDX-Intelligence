@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import { makeFormat } from "@/lib/format";
 import type { Locale } from "@/lib/i18n/locales";
-import { isLiveTrading, useLiveQuote } from "@/lib/live-store";
+import { todaysQuote, useLiveQuote } from "@/lib/live-store";
 
 /**
  * A price-dependent line, recomputed from the live price with the backend's thresholds
@@ -43,7 +43,7 @@ export function SummaryLines({
 }) {
   const f = useMemo(() => makeFormat(locale), [locale]);
   const state = useLiveQuote(ticker);
-  const price = isLiveTrading(state) ? state.result!.quote!.lastPrice : null;
+  const price = todaysQuote(state)?.lastPrice ?? null;
   const fill = (template: string, values: Record<string, string>) =>
     template.replace(/\{(\w+)\}/g, (_, key: string) => values[key] ?? "");
 

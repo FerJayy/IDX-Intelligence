@@ -73,7 +73,7 @@ export async function MarketOverview({ tab }: { tab: MoverTab }) {
               change={index.change}
               changePercent={index.changePercent}
               closeDate={index.tradeDate}
-              labels={{ live: t.live.badge, delayed: t.dashboard.ihsgDelayed }}
+              labels={{ live: t.live.badge, delayed: t.dashboard.ihsgDelayed, closed: t.live.closedToday }}
             />
           ) : (
             <p className="mt-2 text-sm text-faint">{t.overview.ihsgMissing}</p>
@@ -170,7 +170,12 @@ function Movers({
       <p className="px-4 pt-2 text-xs">
         {live ? (
           <>
-            <span className="font-semibold text-up">● {t.live.badge}</span>{" "}
+            {/* After the close the provider's status is no longer "open"/"break": these are today's final lists. */}
+            {live.marketStatus == null || ["open", "break"].includes(live.marketStatus) ? (
+              <span className="font-semibold text-up">● {t.live.badge}</span>
+            ) : (
+              <span className="font-semibold text-muted">{t.live.closedToday}</span>
+            )}{" "}
             <span className="text-faint">
               {t.dashboard.liveAsOf(f.jakartaTime(live.fetchedAt!))}
               {live.marketLabel && <> · {live.marketLabel}</>}

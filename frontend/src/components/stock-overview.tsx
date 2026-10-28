@@ -113,7 +113,7 @@ export async function StockOverview({
             `${t.stock.vol} ${f.compact(quote.volume)} · ${t.stock.estValue} ${f.rupiah(quote.value)}`,
             ...(quote.tradeDate ? [t.stock.closeOf(f.tradingDate(quote.tradeDate))] : []),
           ]}
-          labels={{ live: t.live.badge, updated: t.live.updated, volume: t.live.lots, value: t.live.value }}
+          labels={{ live: t.live.badge, updated: t.live.updated, volume: t.live.lots, value: t.live.value, closedToday: t.live.closedToday }}
         />
       </header>
 

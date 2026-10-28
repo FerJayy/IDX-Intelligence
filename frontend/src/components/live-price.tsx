@@ -18,7 +18,8 @@ export function LivePrice({ ticker, locale, labels }: { ticker: string; locale: 
   const status = result?.status;
   const halted = paused || status !== "LIVE";
 
-  if (!result || status === "MARKET_CLOSED") return null;
+  // After the close the header shows today's close; the live box has nothing more to add.
+  if (!result || status === "MARKET_CLOSED" || status === "CLOSED_TODAY") return null;
 
   if (status !== "LIVE" || !result.quote) {
     return (

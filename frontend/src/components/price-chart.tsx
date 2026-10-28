@@ -16,7 +16,8 @@ import type { Candle, CandleSeries, DailyBrokerFlow } from "@/lib/api";
 import { changeColor, makeFormat } from "@/lib/format";
 import type { ClientLabels, Dictionary } from "@/lib/i18n/en";
 import type { Locale } from "@/lib/i18n/locales";
-import { isLiveTrading, useLiveQuote } from "@/lib/live-store";
+import { isLiveTrading, todaysQuote, useLiveQuote } from "@/lib/live-store";
+import { tradingDayStarted } from "@/lib/session";
 
 // Stable default: a fresh [] each render would re-run the chart effect on every hover.
 const NO_FLOWS: DailyBrokerFlow[] = [];
@@ -253,8 +254,9 @@ export function PriceChart({ locale, labels, candles: initialCandles, intraday, 
   // Stocks: the shared live poller tells whether the market is trading. The IHSG has no live quote,
   // so its intraday refresh checks the session clock instead.
   const liveState = useLiveQuote(live?.stock ? live.symbol : null);
-  const quote = isLiveTrading(liveState) ? liveState.result!.quote! : null;
-  const trading = quote != null;
+  // Today's candle also uses today's close after the market has closed (until the evening import).
+  const quote = todaysQuote(liveState);
+  const trading = isLiveTrading(liveState);
   const candlesRef = useRef(candles);
   useEffect(() => {
     candlesRef.current = candles;
@@ -290,7 +292,8 @@ export function PriceChart({ locale, labels, candles: initialCandles, intraday, 
     const startedAt = Date.now();
     let cancelled = false;
     const load = () => {
-      if (document.visibilityState !== "visible" || !sessionOpen()) return;
+      // The IHSG's today candle is also wanted after the close, until the evening import stores it.
+      if (document.visibilityState !== "visible" || !(sessionOpen() || (indexDaily && tradingDayStarted()))) return;
       const params = new URLSearchParams({ symbol: refreshSymbol, interval: refreshInterval, range: refreshRange });
       fetch(`/api/candles?${params}`, { cache: "no-store" })
         .then((response) => (response.ok ? (response.json() as Promise<CandleSeries>) : null))

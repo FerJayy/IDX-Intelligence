@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import { makeFormat } from "@/lib/format";
 import type { Locale } from "@/lib/i18n/locales";
-import { isLiveTrading, useLiveQuote } from "@/lib/live-store";
+import { isLiveTrading, todaysQuote, useLiveQuote } from "@/lib/live-store";
 
 type Row = { label: string; low: number | null; high: number | null };
 
@@ -29,7 +29,7 @@ export function RangeBars({
   const f = useMemo(() => makeFormat(locale), [locale]);
   const state = useLiveQuote(ticker);
   const live = isLiveTrading(state) ? state.result!.quote!.lastPrice : null;
-  const price = live ?? close;
+  const price = todaysQuote(state)?.lastPrice ?? close;
 
   return (
     <div className="mt-4">

@@ -42,7 +42,7 @@ function set(ticker: string, next: Partial<LiveState>) {
 /** Nothing more to ask once the market is closed or the budget is spent. */
 function finished(state: LiveState) {
   const status = state.result?.status;
-  return state.paused || status === "MARKET_CLOSED" || status === "BUDGET_USED" || status === "UNAVAILABLE";
+  return state.paused || status === "MARKET_CLOSED" || status === "CLOSED_TODAY" || status === "BUDGET_USED" || status === "UNAVAILABLE";
 }
 
 function tick(ticker: string) {
@@ -101,6 +101,17 @@ export function useLiveQuote(ticker: string | null): LiveState & { resume: () =>
     start(ticker);
   }, [ticker]);
   return { ...state, resume };
+}
+
+/**
+ * Today's price: the live quote while trading, or today's close between the close and the evening
+ * import (so pages don't fall back to yesterday's stored close in that gap). Null otherwise.
+ */
+export function todaysQuote(state: LiveState) {
+  const q = state.result?.quote;
+  if (q == null || q.lastPrice == null) return null;
+  if (state.result?.status === "CLOSED_TODAY") return q;
+  return isLiveTrading(state) ? q : null;
 }
 
 /** True while the market session is running and the quote is real-time (not a no-trade placeholder). */

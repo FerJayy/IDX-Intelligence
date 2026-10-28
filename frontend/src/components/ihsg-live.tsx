@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { CandleSeries } from "@/lib/api";
 import { changeColor, makeFormat } from "@/lib/format";
 import type { Locale } from "@/lib/i18n/locales";
-import { sessionOpenNow } from "@/lib/session";
+import { sessionOpenNow, tradingDayStarted } from "@/lib/session";
 
 const REFRESH_MS = 120_000;
 /** Same limit as the other live parts: a forgotten tab stops asking after a while. */
@@ -35,7 +35,7 @@ export function IhsgLive({
   changePercent: number | null;
   /** The end-of-day close's trading date, "YYYY-MM-DD". */
   closeDate: string | null;
-  labels: { live: string; delayed: string };
+  labels: { live: string; delayed: string; closed: string };
 }) {
   const f = useMemo(() => makeFormat(locale), [locale]);
   const [live, setLive] = useState<Live | null>(null);
@@ -44,7 +44,8 @@ export function IhsgLive({
     let cancelled = false;
     const startedAt = Date.now();
     const load = () => {
-      if (!sessionOpenNow() || document.visibilityState !== "visible") return;
+      // During the session, and after the close until the evening import has today's close.
+      if (!tradingDayStarted() || document.visibilityState !== "visible") return;
       fetch(`/api/candles?symbol=COMPOSITE&interval=15m&range=5D`, { cache: "no-store" })
         .then((r) => (r.ok ? (r.json() as Promise<CandleSeries>) : null))
         .then((series) => {
@@ -86,7 +87,7 @@ export function IhsgLive({
       </div>
       {live && (
         <p className="mt-1 text-xs">
-          <span className="font-semibold text-up">● {labels.live}</span>{" "}
+          {sessionOpenNow() ? <span className="font-semibold text-up">● {labels.live}</span> : <span className="font-semibold text-muted">{labels.closed}</span>}{" "}
           <span className="text-faint">{labels.delayed.replace("{time}", f.intradayTime(live.time))}</span>
         </p>
       )}

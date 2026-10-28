@@ -57,7 +57,7 @@ async function IhsgChart({ interval, range }: { interval: Interval; range?: stri
               change={index.change}
               changePercent={index.changePercent}
               closeDate={index.tradeDate}
-              labels={{ live: t.live.badge, delayed: t.dashboard.ihsgDelayed }}
+              labels={{ live: t.live.badge, delayed: t.dashboard.ihsgDelayed, closed: t.live.closedToday }}
             />
             {index.tradeDate && <p className="text-right text-xs text-faint">{t.stock.closeOf(f.tradingDate(index.tradeDate))}</p>}
           </div>

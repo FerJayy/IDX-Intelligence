@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import { changeColor, makeFormat } from "@/lib/format";
 import type { Locale } from "@/lib/i18n/locales";
-import { isLiveTrading, useLiveQuote } from "@/lib/live-store";
+import { todaysQuote, useLiveQuote } from "@/lib/live-store";
 
 const LOT_SIZE = 100;
 
@@ -27,11 +27,12 @@ export function HeaderPrice({
   changePercent: number | null;
   /** End-of-day lines under the price (volume, "Close of …"), already formatted on the server. */
   details: string[];
-  labels: { live: string; updated: string; volume: string; value: string };
+  labels: { live: string; updated: string; volume: string; value: string; closedToday: string };
 }) {
   const f = useMemo(() => makeFormat(locale), [locale]);
   const state = useLiveQuote(ticker);
-  const q = isLiveTrading(state) ? state.result!.quote! : null;
+  const q = todaysQuote(state);
+  const closedToday = state.result?.status === "CLOSED_TODAY";
 
   return (
     <div className="text-right">
@@ -42,12 +43,17 @@ export function HeaderPrice({
       {q ? (
         <>
           <p className="text-xs text-faint">
-            {labels.volume} {f.lots(q.lot == null ? null : q.lot * LOT_SIZE)} · {labels.value} {f.rupiah(q.value)}
+            {labels.volume} {f.lots(q.lot == null ? null : q.lot * LOT_SIZE)}
+            {q.value != null && <> · {labels.value} {f.rupiah(q.value)}</>}
           </p>
-          <p className="text-xs font-semibold text-up">
-            ● {labels.live}
-            {q.dataTime && <span className="font-normal text-faint"> {labels.updated.replace("{time}", q.dataTime)}</span>}
-          </p>
+          {closedToday ? (
+            <p className="text-xs font-semibold text-muted">{labels.closedToday}</p>
+          ) : (
+            <p className="text-xs font-semibold text-up">
+              ● {labels.live}
+              {q.dataTime && <span className="font-normal text-faint"> {labels.updated.replace("{time}", q.dataTime)}</span>}
+            </p>
+          )}
         </>
       ) : (
         details.map((line) => (

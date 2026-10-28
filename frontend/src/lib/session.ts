@@ -1,3 +1,18 @@
+/**
+ * Weekday from 09:00 WIB on: today's prices exist (live during the session, final after the close).
+ * Pages compare with their stored date to know whether the evening import already has today.
+ */
+export function tradingDayStarted(date = new Date()): boolean {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Jakarta",
+    weekday: "short",
+    hour: "2-digit",
+    hour12: false,
+  }).formatToParts(date);
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
+  return !["Sat", "Sun"].includes(get("weekday")) && Number(get("hour")) >= 9;
+}
+
 /** Weekday 09:00–16:15 WIB, the IDX trading day (holidays aren't known here; nothing breaks on one). */
 export function sessionOpenNow(date = new Date()): boolean {
   const parts = new Intl.DateTimeFormat("en-GB", {

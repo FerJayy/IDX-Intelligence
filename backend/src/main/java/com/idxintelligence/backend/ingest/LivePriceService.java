@@ -1,5 +1,6 @@
 package com.idxintelligence.backend.ingest;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -21,7 +22,8 @@ import java.util.concurrent.ConcurrentHashMap;
 @Service
 public class LivePriceService {
 
-    public enum Status { LIVE, MARKET_CLOSED, BUDGET_USED, UNAVAILABLE }
+    /** CLOSED_TODAY: the market has closed and the quote is today's close (from Yahoo, before the evening import). */
+    public enum Status { LIVE, CLOSED_TODAY, MARKET_CLOSED, BUDGET_USED, UNAVAILABLE }
 
     static final Duration CACHE = Duration.ofSeconds(60);
     // IDX: pre-opening from 08:45, session 1 from 09:00, pre-closing/post-trading until ~16:15 WIB.
@@ -29,6 +31,7 @@ public class LivePriceService {
     static final LocalTime CLOSES = LocalTime.of(16, 15);
 
     private final IdxEdgeClient client;
+    private final TodayCloseService todayClose;
     private final Clock clock;
     private final int dailyBudget;
 
@@ -41,11 +44,17 @@ public class LivePriceService {
     /** A weekday the provider reported as closed (an exchange holiday): no more requests that day. */
     private volatile LocalDate closedDay;
 
-    public LivePriceService(IdxEdgeClient client, Clock clock,
+    @Autowired
+    public LivePriceService(IdxEdgeClient client, TodayCloseService todayClose, Clock clock,
                             @Value("${live.daily-budget:150}") int dailyBudget) {
         this.client = client;
+        this.todayClose = todayClose;
         this.clock = clock;
         this.dailyBudget = dailyBudget;
+    }
+
+    LivePriceService(IdxEdgeClient client, Clock clock, int dailyBudget) {
+        this(client, null, clock, dailyBudget);
     }
 
     /** @param budgetLeft requests left in today's live budget */
@@ -57,6 +66,11 @@ public class LivePriceService {
         ZonedDateTime now = clock.instant().atZone(YahooFinanceClient.JAKARTA);
         if (!client.isConfigured()) return new LiveResult(Status.UNAVAILABLE, null, null, budgetLeft(now));
         if (!marketHours(now) || now.toLocalDate().equals(closedDay)) {
+            // After the close, today's final price until the evening import has it (no IDX Edge request).
+            if (todayClose != null && !now.toLocalDate().equals(closedDay)) {
+                var close = todayClose.todayClose(code);
+                if (close.isPresent()) return new LiveResult(Status.CLOSED_TODAY, close.get(), clock.instant(), budgetLeft(now));
+            }
             return new LiveResult(Status.MARKET_CLOSED, null, null, budgetLeft(now));
         }
 

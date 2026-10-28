@@ -269,7 +269,8 @@ export type LiveQuote = {
   noTradeToday: boolean | null;
 };
 
-export type LiveStatus = "LIVE" | "MARKET_CLOSED" | "BUDGET_USED" | "UNAVAILABLE";
+// CLOSED_TODAY: market closed, quote = today's close (Yahoo) until the evening import stores it.
+export type LiveStatus = "LIVE" | "CLOSED_TODAY" | "MARKET_CLOSED" | "BUDGET_USED" | "UNAVAILABLE";
 
 export type LiveResult = {
   status: LiveStatus;
