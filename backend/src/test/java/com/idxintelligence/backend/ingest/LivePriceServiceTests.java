@@ -88,6 +88,39 @@ class LivePriceServiceTests {
     }
 
     @Test
+    void noNewRequestsDuringTheLunchBreak() {
+        when(client.isConfigured()).thenReturn(true);
+        when(client.livePrice(anyString())).thenReturn(quote());
+        MovableClock clock = new MovableClock(TUESDAY_1430.withHour(11).withMinute(58).toInstant());
+        LivePriceService service = new LivePriceService(client, clock, 150);
+
+        service.quote("BBCA");                       // 11:58, session 1
+        clock.advance(Duration.ofMinutes(5));         // 12:03, break
+        assertThat(service.quote("BBCA").status()).isEqualTo(LivePriceService.Status.LIVE);
+        clock.advance(Duration.ofMinutes(60));        // 13:03, still break
+        service.quote("BBCA");
+        verify(client, times(1)).livePrice("BBCA");
+        clock.advance(Duration.ofMinutes(30));        // 13:33, session 2
+        service.quote("BBCA");
+        verify(client, times(2)).livePrice("BBCA");
+    }
+
+    @Test
+    void aHolidayStopsRequestsForTheRestOfTheDay() {
+        when(client.isConfigured()).thenReturn(true);
+        IdxEdgeClient.LiveQuote closed = new IdxEdgeClient.LiveQuote("BBCA", BigDecimal.valueOf(4890), BigDecimal.ZERO,
+                BigDecimal.ZERO, null, null, null, null, "16:00:00", "closed", "Pasar tutup", true);
+        when(client.livePrice(anyString())).thenReturn(closed);
+        MovableClock clock = new MovableClock(TUESDAY_1430.toInstant());
+        LivePriceService service = new LivePriceService(client, clock, 150);
+
+        assertThat(service.quote("BBCA").status()).isEqualTo(LivePriceService.Status.MARKET_CLOSED);
+        clock.advance(Duration.ofMinutes(10));
+        assertThat(service.quote("TLKM").status()).isEqualTo(LivePriceService.Status.MARKET_CLOSED);
+        verify(client, times(1)).livePrice(anyString());
+    }
+
+    @Test
     void stopsAtTheDailyBudgetAndResetsTheNextDay() {
         when(client.isConfigured()).thenReturn(true);
         when(client.livePrice(anyString())).thenReturn(quote());

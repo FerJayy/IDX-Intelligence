@@ -38,6 +38,8 @@ public class LivePriceService {
     private final Map<String, Cached> cache = new ConcurrentHashMap<>();
     private LocalDate budgetDay;
     private int usedToday;
+    /** A weekday the provider reported as closed (an exchange holiday): no more requests that day. */
+    private volatile LocalDate closedDay;
 
     public LivePriceService(IdxEdgeClient client, Clock clock,
                             @Value("${live.daily-budget:150}") int dailyBudget) {
@@ -54,10 +56,16 @@ public class LivePriceService {
         String code = ticker.toUpperCase();
         ZonedDateTime now = clock.instant().atZone(YahooFinanceClient.JAKARTA);
         if (!client.isConfigured()) return new LiveResult(Status.UNAVAILABLE, null, null, budgetLeft(now));
-        if (!marketHours(now)) return new LiveResult(Status.MARKET_CLOSED, null, null, budgetLeft(now));
+        if (!marketHours(now) || now.toLocalDate().equals(closedDay)) {
+            return new LiveResult(Status.MARKET_CLOSED, null, null, budgetLeft(now));
+        }
 
         Cached cached = cache.get(code);
-        if (cached != null && cached.fetchedAt().plus(CACHE).isAfter(clock.instant())) {
+        boolean cachedToday = cached != null
+                && cached.fetchedAt().atZone(YahooFinanceClient.JAKARTA).toLocalDate().equals(now.toLocalDate());
+        // Prices don't move during the lunch break: today's last quote stands until the session resumes.
+        if (cached != null && (cached.fetchedAt().plus(CACHE).isAfter(clock.instant())
+                || (cachedToday && MarketSession.lunchBreak(now)))) {
             return new LiveResult(Status.LIVE, cached.quote(), cached.fetchedAt(), budgetLeft(now));
         }
         if (!takeFromBudget(now)) {
@@ -65,6 +73,10 @@ public class LivePriceService {
         }
         try {
             IdxEdgeClient.LiveQuote quote = client.livePrice(code);
+            if (MarketSession.continuousTrading(now) && MarketSession.saysClosed(quote.marketState(), quote.marketLabel())) {
+                closedDay = now.toLocalDate();
+                return new LiveResult(Status.MARKET_CLOSED, null, null, budgetLeft(now));
+            }
             // A price beyond IDX's daily limit is a negotiated-market trade or bad data, not the market price.
             if (!LiveMoversService.withinDailyLimit(quote.lastPrice(), quote.change(), quote.changePercent())) {
                 return new LiveResult(Status.UNAVAILABLE, null, null, budgetLeft(now));

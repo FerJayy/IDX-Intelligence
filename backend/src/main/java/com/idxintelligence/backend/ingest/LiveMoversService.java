@@ -34,9 +34,7 @@ public class LiveMoversService {
 
     private static final Logger log = LoggerFactory.getLogger(LiveMoversService.class);
     static final LocalTime FROM = LocalTime.of(9, 0);
-    static final LocalTime SESSION_END = LocalTime.of(16, 15);
     static final Duration REFRESH_IN_SESSION = Duration.ofMinutes(10);
-    static final Duration REFRESH_AFTER_CLOSE = Duration.ofMinutes(60);
     /** Same bar as the end-of-day movers (MarketService.MIN_MOVER_VALUE): below it a stock is tagged "thin". */
     static final BigDecimal THIN_VALUE = new BigDecimal("1000000000");
 
@@ -49,6 +47,8 @@ public class LiveMoversService {
     private int usedToday;
     private LiveMovers cached;
     private Instant cachedAt;
+    /** A weekday the provider reported as closed (an exchange holiday): no more requests that day. */
+    private LocalDate closedDay;
 
     public LiveMoversService(IdxEdgeClient client, JdbcClient jdbc, MarketDataProvider marketData, Clock clock,
                              @Value("${live.movers-daily-budget:80}") int dailyBudget) {
@@ -77,15 +77,28 @@ public class LiveMoversService {
 
     public synchronized LiveMovers movers() {
         ZonedDateTime now = clock.instant().atZone(YahooFinanceClient.JAKARTA);
-        if (!client.isConfigured() || !inWindow(now)) return LiveMovers.NONE;
+        if (!client.isConfigured() || now.toLocalDate().equals(closedDay) || !inWindow(now)) return LiveMovers.NONE;
 
-        Duration refresh = now.toLocalTime().isBefore(SESSION_END) ? REFRESH_IN_SESSION : REFRESH_AFTER_CLOSE;
-        boolean fresh = cached != null && cachedAt.plus(refresh).isAfter(clock.instant())
-                && cachedAt.atZone(YahooFinanceClient.JAKARTA).toLocalDate().equals(now.toLocalDate());
+        ZonedDateTime cachedTime = cachedAt == null ? null : cachedAt.atZone(YahooFinanceClient.JAKARTA);
+        boolean cachedToday = cached != null && cachedTime.toLocalDate().equals(now.toLocalDate());
+        // No new requests while prices can't change: the lunch break, and after the close once the
+        // final lists have been fetched (they stay until the evening import replaces them).
+        if (cachedToday && (MarketSession.lunchBreak(now)
+                || (MarketSession.afterClose(now) && MarketSession.afterClose(cachedTime)))) {
+            return cached;
+        }
+        boolean fresh = cachedToday && cachedAt.plus(REFRESH_IN_SESSION).isAfter(clock.instant());
         if (fresh) return cached;
         if (!takeFromBudget(now, 2)) return cached != null ? cached : LiveMovers.NONE;
         try {
             IdxEdgeClient.MoversPage byChange = client.movers("chg");
+            IdxEdgeClient.MarketState state = byChange.market();
+            if (state != null && MarketSession.continuousTrading(now) && MarketSession.saysClosed(state.status(), state.label())) {
+                // A holiday: the provider's lists are an older day's, not today's.
+                closedDay = now.toLocalDate();
+                cached = null;
+                return LiveMovers.NONE;
+            }
             IdxEdgeClient.MoversPage byValue = client.movers("value");
             cached = build(byChange, byValue, now.toOffsetDateTime());
             cachedAt = clock.instant();

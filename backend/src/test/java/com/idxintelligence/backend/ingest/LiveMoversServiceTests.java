@@ -127,6 +127,22 @@ class LiveMoversServiceTests extends EmbeddedPostgresTest {
     }
 
     @Test
+    void noRefreshDuringTheBreakAndOnlyOneFinalFetchAfterTheClose() {
+        MovableClock clock = new MovableClock(WEDNESDAY_1400.withHour(11).withMinute(55));
+        LiveMoversService service = new LiveMoversService(client, jdbc, marketData, clock, 80);
+
+        service.movers();                                   // 11:55
+        clock.set(WEDNESDAY_1400.withHour(13).withMinute(0));
+        service.movers();                                   // 13:00, break: cached
+        verify(client, times(1)).movers("chg");
+        clock.set(WEDNESDAY_1400.withHour(16).withMinute(20));
+        service.movers();                                   // after the close: the final lists
+        clock.set(WEDNESDAY_1400.withHour(16).withMinute(55));
+        service.movers();                                   // still after the close: no more requests
+        verify(client, times(2)).movers("chg");
+    }
+
+    @Test
     void movesBeyondTheDailyLimitAreLeftOut() {
         // MKNT on 28 Oct 2026: previous close 8, "last" 18 (+125%) from a negotiated trade.
         IdxEdgeClient.Mover mknt = new IdxEdgeClient.Mover("MKNT", new BigDecimal("18"), new BigDecimal("10"),
