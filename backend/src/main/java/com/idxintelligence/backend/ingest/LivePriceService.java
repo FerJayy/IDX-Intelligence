@@ -65,6 +65,10 @@ public class LivePriceService {
         }
         try {
             IdxEdgeClient.LiveQuote quote = client.livePrice(code);
+            // A price beyond IDX's daily limit is a negotiated-market trade or bad data, not the market price.
+            if (!LiveMoversService.withinDailyLimit(quote.lastPrice(), quote.change(), quote.changePercent())) {
+                return new LiveResult(Status.UNAVAILABLE, null, null, budgetLeft(now));
+            }
             Instant fetchedAt = clock.instant();
             cache.put(code, new Cached(fetchedAt, quote));
             return new LiveResult(Status.LIVE, quote, fetchedAt, budgetLeft(now));

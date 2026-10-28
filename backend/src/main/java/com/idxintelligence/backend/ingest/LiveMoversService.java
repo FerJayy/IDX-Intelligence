@@ -143,9 +143,28 @@ public class LiveMoversService {
         if (movers == null) return List.of();
         return movers.stream()
                 .filter(m -> m.code() != null && names.containsKey(m.code()))
+                .filter(LiveMoversService::withinDailyLimit)
                 .map(m -> new LiveMover(m.code(), names.get(m.code()), hsc.contains(m.code()), m.lastPrice(), m.change(),
                         m.changePercent(), m.value(), m.value() == null || m.value().compareTo(THIN_VALUE) < 0))
                 .toList();
+    }
+
+    /**
+     * A regular-market price can't move further than IDX's daily auto-rejection limit for its price band
+     * (from the previous close: Rp50–200 35%, Rp200–5,000 25%, above 20%). Beyond that the provider's last
+     * price came from a negotiated-market trade or bad data (seen: MKNT "+125%" at 18 while it traded at 9),
+     * so it doesn't belong in today's top lists. One percentage point of margin covers tick rounding.
+     */
+    static boolean withinDailyLimit(IdxEdgeClient.Mover m) {
+        return withinDailyLimit(m.lastPrice(), m.change(), m.changePercent());
+    }
+
+    /** Same check for any provider quote; unknown figures pass. */
+    public static boolean withinDailyLimit(BigDecimal last, BigDecimal change, BigDecimal changePercent) {
+        if (last == null || change == null || changePercent == null) return true;
+        double previous = last.subtract(change).doubleValue();
+        double limit = previous > 5000 ? 20 : previous >= 200 ? 25 : 35;
+        return Math.abs(changePercent.doubleValue()) <= limit + 1;
     }
 
     private boolean takeFromBudget(ZonedDateTime now, int requests) {

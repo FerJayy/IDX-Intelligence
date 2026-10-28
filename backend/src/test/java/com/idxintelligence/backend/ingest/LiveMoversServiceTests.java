@@ -127,6 +127,20 @@ class LiveMoversServiceTests extends EmbeddedPostgresTest {
     }
 
     @Test
+    void movesBeyondTheDailyLimitAreLeftOut() {
+        // MKNT on 28 Oct 2026: previous close 8, "last" 18 (+125%) from a negotiated trade.
+        IdxEdgeClient.Mover mknt = new IdxEdgeClient.Mover("MKNT", new BigDecimal("18"), new BigDecimal("10"),
+                new BigDecimal("125"), new BigDecimal("1"), new BigDecimal("107000000"));
+        IdxEdgeClient.Mover limitUp = new IdxEdgeClient.Mover("KOPI", new BigDecimal("189"), new BigDecimal("49"),
+                new BigDecimal("35"), new BigDecimal("1"), new BigDecimal("5000000000"));
+        IdxEdgeClient.Mover bigCap = new IdxEdgeClient.Mover("BBCA", new BigDecimal("6600"), new BigDecimal("1500"),
+                new BigDecimal("29.41"), new BigDecimal("1"), new BigDecimal("5000000000"));
+        assertThat(LiveMoversService.withinDailyLimit(mknt)).isFalse();
+        assertThat(LiveMoversService.withinDailyLimit(limitUp)).isTrue();
+        assertThat(LiveMoversService.withinDailyLimit(bigCap)).isFalse();   // > 20% above Rp5,000
+    }
+
+    @Test
     void stopsAtTheDailyBudget() {
         MovableClock clock = new MovableClock(WEDNESDAY_1400);
         LiveMoversService service = new LiveMoversService(client, jdbc, marketData, clock, 2);
