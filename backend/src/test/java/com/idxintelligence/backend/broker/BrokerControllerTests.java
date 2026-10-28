@@ -34,6 +34,23 @@ class BrokerControllerTests {
     }
 
     @Test
+    void latestDayCoversExactlyOneBrokerDay() throws Exception {
+        mockMvc.perform(get("/api/stocks/BBCA/brokers?range=1D"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.range").value("1D"))
+                .andExpect(jsonPath("$.brokerDays").value(1))
+                .andExpect(jsonPath("$.daily.length()").value(1));
+    }
+
+    @Test
+    void weekCoversTheLastFiveBrokerDays() throws Exception {
+        mockMvc.perform(get("/api/stocks/BBCA/brokers?range=1w"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.range").value("1W"))
+                .andExpect(jsonPath("$.brokerDays").value(5));
+    }
+
+    @Test
     void unknownTickerReturns404() throws Exception {
         mockMvc.perform(get("/api/stocks/XXXX/brokers")).andExpect(status().isNotFound());
     }

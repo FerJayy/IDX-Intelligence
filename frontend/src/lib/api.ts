@@ -510,9 +510,13 @@ export async function getPriceHistory(
 }
 
 /** Returns null when the backend does not know the ticker. */
+/** Broker section periods: 1D = the latest day with broker data (like most broker apps), 1W = last 5 such days. */
+export const BROKER_PERIODS = ["1D", "1W", "1M", "3M"] as const;
+export type BrokerPeriod = (typeof BROKER_PERIODS)[number];
+
 export async function getBrokerSummary(
   ticker: string,
-  range: PriceRange,
+  range: PriceRange | BrokerPeriod,
 ): Promise<BrokerSummary | null> {
   const response = await fetch(
     `${API_BASE_URL}/api/stocks/${encodeURIComponent(ticker)}/brokers?range=${range}`,

@@ -149,3 +149,26 @@ body {
   color: var(--fg);
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
 }
+
+/* Live price box: a slow glow while prices are live. Off for visitors who ask for less motion. */
+@keyframes live-breathe {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 var(--up-line);
+    border-color: var(--up-line);
+  }
+  50% {
+    box-shadow: 0 0 0 4px transparent, 0 0 18px 2px var(--up-line);
+    border-color: var(--up);
+  }
+}
+
+.live-breathe {
+  animation: live-breathe 2.8s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .live-breathe {
+    animation: none;
+  }
+}

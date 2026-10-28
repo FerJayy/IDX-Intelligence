@@ -15,9 +15,14 @@ public class BrokerController {
         this.brokerAnalysis = brokerAnalysis;
     }
 
+    /** range: 1D (latest broker day), 1W (last 5 broker days), or a calendar range 1M, 3M, 6M, 1Y. */
     @GetMapping("/api/stocks/{ticker}/brokers")
     public BrokerSummary brokers(@PathVariable String ticker,
                                  @RequestParam(defaultValue = "3M") String range) {
-        return brokerAnalysis.summary(ticker, PriceRange.fromCode(range));
+        return switch (range.toUpperCase()) {
+            case "1D" -> brokerAnalysis.recentSummary(ticker, 1, "1D");
+            case "1W" -> brokerAnalysis.recentSummary(ticker, 5, "1W");
+            default -> brokerAnalysis.summary(ticker, PriceRange.fromCode(range));
+        };
     }
 }

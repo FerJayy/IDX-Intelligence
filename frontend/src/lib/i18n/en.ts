@@ -379,6 +379,11 @@ export const en = {
   },
   broker: {
     title: (range: string) => `Broker activity · ${range}`,
+    periods: { "1D": "Last day", "1W": "1 week", "1M": "1 month", "3M": "3 months" },
+    periodLabel: "Broker period",
+    singleDay: (date: string) => `${date} only (one trading day)`,
+    totalOver: (from: string, to: string, days: number) => `Totals over ${from} – ${to} (${days} day${days === 1 ? "" : "s"} with broker data)`,
+    noDays: "No broker data in this period yet",
     demoTag: "DEMO DATA",
     coverage: (brokerDays: number, tradingDays: number) =>
       `Broker data covers ${brokerDays} of ${tradingDays} trading days in this range. History is still being imported (newest days first) and fills in a little more each day.`,

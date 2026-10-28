@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { StockOverview } from "@/components/stock-overview";
-import { parseInterval, type TrackOutcome } from "@/lib/api";
+import { BROKER_PERIODS, parseInterval, type BrokerPeriod, type TrackOutcome } from "@/lib/api";
 import { getI18n } from "@/lib/i18n";
 
 export default async function StockPage({ params, searchParams }: PageProps<"/[lang]/stocks/[ticker]">) {
@@ -14,6 +14,7 @@ export default async function StockPage({ params, searchParams }: PageProps<"/[l
       interval={parseInterval(query.tf)}
       range={typeof query.range === "string" ? query.range.toUpperCase() : undefined}
       tracking={parseTracking(query.tracking)}
+      brokerPeriod={BROKER_PERIODS.find((p) => p === query.broker) as BrokerPeriod | undefined}
     />
   ));
 

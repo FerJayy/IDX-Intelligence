@@ -2,8 +2,10 @@ import { notFound, unstable_rethrow } from "next/navigation";
 import { Suspense } from "react";
 import {
   getBrokerSummary,
+  type BrokerPeriod,
   getStock,
   getStockCandles,
+  BROKER_PERIODS,
   PRICE_RANGES,
   type CandleSeries,
   type Interval,
@@ -31,24 +33,31 @@ export async function StockOverview({
   interval,
   range,
   tracking,
+  brokerPeriod = "1M",
 }: {
   ticker: string;
   interval: Interval;
   range?: string;
   /** Outcome of a "Load broker data" click, from the redirect. */
   tracking?: TrackOutcome;
+  /** Period of the broker section (?broker=); independent of the chart's range. */
+  brokerPeriod?: BrokerPeriod;
 }) {
   const { locale, t, f } = await getI18n();
 
-  // Broker data is daily: on 1D it follows the chart's range, otherwise it shows 3 months.
+  // The chart's broker panels follow the chart's range (daily candles only); the broker section has
+  // its own period selector, so its totals never silently change with the chart.
   const brokerRange: PriceRange =
     interval === "1d" && (PRICE_RANGES as readonly string[]).includes(range ?? "") ? (range as PriceRange) : "3M";
   // Broker data is optional for this page: if it fails, show prices without it.
-  const brokerRequest = getBrokerSummary(ticker, brokerRange).catch((error) => {
-    unstable_rethrow(error);
-    console.error(error);
-    return undefined;
-  });
+  const loadBrokers = (period: PriceRange | BrokerPeriod) =>
+    getBrokerSummary(ticker, period).catch((error) => {
+      unstable_rethrow(error);
+      console.error(error);
+      return undefined;
+    });
+  const brokerRequest = loadBrokers(brokerRange);
+  const sectionRequest = brokerPeriod === brokerRange ? brokerRequest : loadBrokers(brokerPeriod);
 
   let stock: StockDetail | null;
   let chart: CandleSeries | null;
@@ -67,9 +76,16 @@ export async function StockOverview({
 
   if (!stock || !chart) notFound();
   const { quote } = stock;
-  const [brokers, watchlist] = await Promise.all([brokerRequest, readWatchlist()]);
+  const [brokers, section, watchlist] = await Promise.all([brokerRequest, sectionRequest, readWatchlist()]);
+  const brokerParam = brokerPeriod === "1M" ? "" : `&broker=${brokerPeriod}`;
   const hrefFor = (i: Interval, r?: string) =>
-    `/${locale}/stocks/${quote.ticker}?tf=${i}${r ? `&range=${r}` : ""}`;
+    `/${locale}/stocks/${quote.ticker}?tf=${i}${r ? `&range=${r}` : ""}${brokerParam}`;
+  const periodLinks = BROKER_PERIODS.map((p) => ({
+    code: p,
+    label: t.broker.periods[p],
+    href: `/${locale}/stocks/${quote.ticker}?tf=${interval}${range ? `&range=${range}` : ""}${p === "1M" ? "" : `&broker=${p}`}`,
+    active: p === brokerPeriod,
+  }));
 
   return (
     <div className="space-y-6">
@@ -149,8 +165,8 @@ export async function StockOverview({
             {t.stock.loadBroker}
           </button>
         </form>
-      ) : brokers ? (
-        <BrokerActivity summary={brokers} />
+      ) : section ? (
+        <BrokerActivity summary={section} periods={periodLinks} />
       ) : (
         <p className="rounded-xl border border-line p-4 text-sm text-faint">{t.stock.brokerUnavailable}</p>
       )}

@@ -30,7 +30,7 @@ export function LivePrice({ ticker, locale, labels }: { ticker: string; locale: 
 
   const q = result.quote;
   return (
-    <section className="rounded-xl border border-up-line bg-card p-4" aria-live="polite">
+    <section className={`rounded-xl border border-up-line bg-card p-4 ${halted ? "" : "live-breathe"}`} aria-live="polite">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
         <span className="inline-flex items-center gap-1.5 rounded bg-up-bg px-2 py-0.5 font-semibold text-up">
           <span className={`h-1.5 w-1.5 rounded-full bg-current ${halted ? "" : "animate-pulse"}`} aria-hidden />

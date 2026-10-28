@@ -102,22 +102,29 @@ function Levels({ levels, t, f }: { levels: NonNullable<StockSummary["levels"]>;
   return (
     <div className="mt-4">
       <p className="text-xs text-faint">{t.summary.levels}</p>
-      <dl className="mt-1 space-y-2 text-xs tabular-nums">
+      <dl className="mt-1 space-y-3 text-xs tabular-nums">
         {rows.map((row) => {
           const span = row.low != null && row.high != null && levels.last != null && row.high > row.low ? row.high - row.low : null;
           const position = span == null ? null : Math.min(1, Math.max(0, (levels.last! - row.low!) / span));
           return (
             <div key={row.label}>
               <dt className="text-muted">{row.label}</dt>
-              <dd className="mt-0.5 flex items-center gap-2">
-                <span className="w-14 text-right">{f.price(row.low)}</span>
-                <span className="relative h-1.5 flex-1 rounded-full bg-chip" aria-hidden>
+              <dd className="mt-0.5 flex items-center gap-2 pt-4">
+                <span className="w-14 text-right text-muted">{f.price(row.low)}</span>
+                <span className="relative h-1.5 flex-1 rounded-full bg-chip">
                   {position != null && (
-                    <span className="absolute top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-card bg-fg"
-                      style={{ left: `${position * 100}%` }} />
+                    <>
+                      {/* The current price sits above its dot: phones can't hover, so it is always shown. */}
+                      <span className="absolute -top-5 -translate-x-1/2 whitespace-nowrap font-semibold text-fg"
+                        style={{ left: `${Math.min(92, Math.max(8, position * 100))}%` }}>
+                        {f.price(levels.last)}
+                      </span>
+                      <span aria-hidden className="absolute top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-card bg-fg"
+                        style={{ left: `${position * 100}%` }} />
+                    </>
                   )}
                 </span>
-                <span className="w-14">{f.price(row.high)}</span>
+                <span className="w-14 text-muted">{f.price(row.high)}</span>
               </dd>
             </div>
           );

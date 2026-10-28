@@ -53,6 +53,31 @@ public class BrokerAnalysisService {
         LocalDate from = range.startFrom(to);
         List<BrokerDailyActivity> rows = brokerData.dailyActivity(quote.ticker(), from, to);
         int tradingDays = marketData.dailyBars(quote.ticker(), from, to).size();
+        return build(quote, range.code(), from, to, tradingDays, rows);
+    }
+
+    /**
+     * The stock's last {@code days} days that have broker data, e.g. 1 = the latest day (what most broker
+     * apps show by default), 5 = about a week. The period ends on the latest broker day, which can be a
+     * day behind the latest price while the evening import hasn't run yet.
+     */
+    public BrokerSummary recentSummary(String ticker, int days, String code) {
+        StockQuote quote = marketService.stock(ticker).quote(); // 404 for unknown tickers
+        LocalDate latest = marketData.latestTradingDate();
+        List<BrokerDailyActivity> recent = brokerData.dailyActivity(quote.ticker(), latest.minusDays(days * 2L + 20), latest);
+        List<LocalDate> brokerDays = recent.stream().map(BrokerDailyActivity::date).distinct().sorted().toList();
+        if (brokerDays.isEmpty()) {
+            return build(quote, code, latest, latest, 0, List.of());
+        }
+        LocalDate from = brokerDays.get(Math.max(0, brokerDays.size() - days));
+        LocalDate to = brokerDays.getLast();
+        List<BrokerDailyActivity> rows = recent.stream().filter(r -> !r.date().isBefore(from)).toList();
+        int tradingDays = marketData.dailyBars(quote.ticker(), from, to).size();
+        return build(quote, code, from, to, tradingDays, rows);
+    }
+
+    private BrokerSummary build(StockQuote quote, String rangeCode, LocalDate from, LocalDate to, int tradingDays,
+                                List<BrokerDailyActivity> rows) {
 
         List<BrokerPosition> positions = positions(rows);
         List<BrokerPosition> topBuyers = positions.stream()
@@ -73,7 +98,7 @@ public class BrokerAnalysisService {
                 brokerData.isDemo() ? MarketService.DEMO_NOTICE : null,
                 OffsetDateTime.now(MarketService.JAKARTA),
                 quote.ticker(),
-                range.code(),
+                rangeCode,
                 quote.brokerTracked(),
                 from,
                 to,

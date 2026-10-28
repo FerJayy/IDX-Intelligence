@@ -374,6 +374,11 @@ export const id: Dictionary = {
   },
   broker: {
     title: (range: string) => `Aktivitas broker · ${range}`,
+    periods: { "1D": "Hari terakhir", "1W": "1 minggu", "1M": "1 bulan", "3M": "3 bulan" },
+    periodLabel: "Periode broker",
+    singleDay: (date: string) => `Hanya ${date} (satu hari bursa)`,
+    totalOver: (from: string, to: string, days: number) => `Total ${from} – ${to} (${days} hari dengan data broker)`,
+    noDays: "Belum ada data broker di periode ini",
     demoTag: "DATA DEMO",
     coverage: (brokerDays: number, tradingDays: number) =>
       `Data broker mencakup ${brokerDays} dari ${tradingDays} hari bursa dalam rentang ini. Riwayat masih diimpor (hari terbaru lebih dulu) dan bertambah sedikit setiap hari.`,
