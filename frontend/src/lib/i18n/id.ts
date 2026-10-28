@@ -13,7 +13,7 @@ export const id: Dictionary = {
     demoNotice: "DATA DEMO — BUKAN DATA PASAR ASLI",
     loadingMarket: "Memuat data pasar…",
     loadingStock: "Memuat data saham…",
-    backendDown: "Data pasar tidak dapat dimuat. Pastikan backend berjalan di port 8080.",
+    backendDown: "Data pasar belum dapat dimuat. Server mungkin sedang bangun — coba lagi sebentar lagi.",
     source: "Sumber",
     generated: "Dibuat",
     endOfDayFor: (date: string) => `Data penutupan ${date}`,
@@ -245,7 +245,7 @@ export const id: Dictionary = {
   ihsg: {
     title: "Indeks Harga Saham Gabungan (IHSG)",
     back: "← Ringkasan pasar",
-    cannotLoad: "IHSG tidak dapat dimuat. Pastikan backend berjalan di port 8080.",
+    cannotLoad: "IHSG belum dapat dimuat. Server mungkin sedang bangun — coba lagi sebentar lagi.",
   },
   theme: {
     label: "Tema",
@@ -307,7 +307,7 @@ export const id: Dictionary = {
   },
   stock: {
     back: "← Ringkasan pasar",
-    cannotLoad: (ticker: string) => `Data ${ticker} tidak dapat dimuat. Pastikan backend berjalan di port 8080.`,
+    cannotLoad: (ticker: string) => `Data ${ticker} belum dapat dimuat. Server mungkin sedang bangun — coba lagi sebentar lagi.`,
     closeOf: (date: string) => `Penutupan ${date}`,
     vol: "Vol",
     estValue: "Perk. nilai",

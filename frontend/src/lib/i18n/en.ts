@@ -17,7 +17,7 @@ export const en = {
     demoNotice: "DEMO DATA — NOT LIVE MARKET DATA",
     loadingMarket: "Loading market data…",
     loadingStock: "Loading stock data…",
-    backendDown: "Cannot load market data. Check that the backend is running on port 8080.",
+    backendDown: "Cannot load market data right now. The server may be waking up — try again in a minute.",
     source: "Source",
     generated: "Generated",
     endOfDayFor: (date: string) => `End-of-day data for ${date}`,
@@ -250,7 +250,7 @@ export const en = {
   ihsg: {
     title: "IDX Composite (IHSG)",
     back: "← Market overview",
-    cannotLoad: "Cannot load the IHSG. Check that the backend is running on port 8080.",
+    cannotLoad: "Cannot load the IHSG right now. The server may be waking up — try again in a minute.",
   },
   theme: {
     label: "Theme",
@@ -312,7 +312,7 @@ export const en = {
   },
   stock: {
     back: "← Market overview",
-    cannotLoad: (ticker: string) => `Cannot load data for ${ticker}. Check that the backend is running on port 8080.`,
+    cannotLoad: (ticker: string) => `Cannot load data for ${ticker} right now. The server may be waking up — try again in a minute.`,
     closeOf: (date: string) => `Close of ${date}`,
     vol: "Vol",
     estValue: "Est. value",
