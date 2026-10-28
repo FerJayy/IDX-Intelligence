@@ -1,0 +1,44 @@
+# Builds the backend, runs its tests and deploys the jar to Azure App Service (Java SE, Linux, Free F1).
+# Needs repository secrets AZURE_WEBAPP_NAME (the Web App's name) and AZURE_WEBAPP_PUBLISH_PROFILE
+# (the downloaded publish profile XML). The app's own settings (DB_URL etc.) live in Azure, not here.
+name: Deploy backend
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - ".github/workflows/deploy-backend.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-backend
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+
+      # Tests use an embedded PostgreSQL, never the real database.
+      - name: Test and build
+        working-directory: backend
+        run: ./mvnw -B -q verify && cp target/backend-*.jar app.jar
+
+      - name: Deploy to Azure
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ secrets.AZURE_WEBAPP_NAME }}
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: backend/app.jar
