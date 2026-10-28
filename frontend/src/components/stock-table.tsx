@@ -99,7 +99,7 @@ export async function StockTable({ query }: { query: StockListQuery }) {
             <tbody>
               {list.stocks.map((s) => (
                 <tr key={s.ticker} className="border-t border-line">
-                  <td className="max-w-64 px-3 py-2">
+                  <td className="w-full max-w-0 px-3 py-2 md:w-auto md:max-w-64">
                     <Link href={`/${locale}/stocks/${s.ticker}`} className="group block">
                       <span className="font-mono font-semibold group-hover:text-accent group-hover:underline">
                         {s.ticker}
@@ -117,8 +117,8 @@ export async function StockTable({ query }: { query: StockListQuery }) {
                     </Link>
                   </td>
                   <td className="hidden px-3 py-2 text-xs text-muted md:table-cell">{s.sector ?? t.stockList.unknownSector}</td>
-                  <td className="px-3 py-2 text-right">{f.price(s.lastPrice)}</td>
-                  <td className={`px-3 py-2 text-right ${changeColor(s.changePercent)}`}>{f.percent(s.changePercent)}</td>
+                  <td className="whitespace-nowrap px-3 py-2 text-right">{f.price(s.lastPrice)}</td>
+                  <td className={`whitespace-nowrap px-3 py-2 text-right ${changeColor(s.changePercent)}`}>{f.percent(s.changePercent)}</td>
                   <td className="hidden px-3 py-2 text-right sm:table-cell">{f.rupiah(s.value)}</td>
                   <td className="hidden px-3 py-2 text-right md:table-cell">{f.rupiah(s.marketCap)}</td>
                 </tr>

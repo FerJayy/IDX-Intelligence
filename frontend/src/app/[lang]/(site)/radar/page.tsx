@@ -84,9 +84,9 @@ async function RadarView({ window, view }: { window: RadarWindow; view: View }) 
               href={`/${locale}/radar?window=${radar.windowDays}&view=${v}`}
               scroll={false}
               aria-current={v === view ? "page" : undefined}
-              className={`-mb-px border-b-2 px-3 pb-2 text-sm ${
-                v === view ? "border-accent font-semibold text-fg" : "border-transparent text-muted hover:text-fg"
-              }`}
+              className={`-mb-px whitespace-nowrap border-b-2 px-2 pb-2 text-sm sm:px-3 ${
+                v === "table" ? "hidden md:inline" : ""
+              } ${v === view ? "border-accent font-semibold text-fg" : "border-transparent text-muted hover:text-fg"}`}
             >
               {t.radar.views[v]}
             </Link>
@@ -439,33 +439,33 @@ function ScreenerSection({ radar, locale, t, f }: { radar: Radar; locale: Locale
           </div>
 
           <div className="overflow-x-auto rounded-xl border border-line bg-card">
-            <table className="w-full min-w-[40rem] text-sm tabular-nums">
+            <table className="w-full text-sm tabular-nums md:min-w-[40rem]">
               <thead className="bg-card-strong text-left text-xs text-faint">
                 <tr>
-                  <th className="px-3 py-2 font-medium">{t.radar.pickDate}</th>
-                  <th className="px-3 py-2 font-medium">{t.radar.stock}</th>
-                  <th className="px-3 py-2 font-medium">{t.radar.bucket}</th>
-                  <th className="px-3 py-2 text-right font-medium">{t.radar.claimed}</th>
-                  <th className="px-3 py-2 text-right font-medium">{t.radar.entry}</th>
+                  <th className="px-2 py-2 font-medium sm:px-3">{t.radar.pickDate}</th>
+                  <th className="px-2 py-2 font-medium sm:px-3">{t.radar.stock}</th>
+                  <th className="hidden px-3 py-2 font-medium md:table-cell">{t.radar.bucket}</th>
+                  <th className="hidden px-3 py-2 text-right font-medium sm:table-cell">{t.radar.claimed}</th>
+                  <th className="hidden px-3 py-2 text-right font-medium sm:table-cell">{t.radar.entry}</th>
                   {summary.map((s) => (
-                    <th key={s.days} className="px-3 py-2 text-right font-medium">+{s.days}d</th>
+                    <th key={s.days} className="whitespace-nowrap px-2 py-2 text-right font-medium sm:px-3">+{s.days}d</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {picks.map((p) => (
                   <tr key={`${p.pickDate}-${p.ticker}`} className="border-t border-line">
-                    <td className="px-3 py-2">{f.tradingDate(p.pickDate)}</td>
-                    <td className="px-3 py-2">
+                    <td className="whitespace-nowrap px-2 py-2 text-xs sm:px-3 sm:text-sm">{f.tradingDate(p.pickDate)}</td>
+                    <td className="px-2 py-2 sm:px-3">
                       <Link href={`/${locale}/stocks/${p.ticker}`} className="font-mono font-semibold hover:text-accent hover:underline">
                         {p.ticker}
                       </Link>
                     </td>
-                    <td className="px-3 py-2 text-xs text-muted">{p.bucket}</td>
-                    <td className="px-3 py-2 text-right">{p.claimedWinRate == null ? "—" : f.fraction(p.claimedWinRate / 100)}</td>
-                    <td className="px-3 py-2 text-right">{f.price(p.entryClose)}</td>
+                    <td className="hidden px-3 py-2 text-xs text-muted md:table-cell">{p.bucket}</td>
+                    <td className="hidden px-3 py-2 text-right sm:table-cell">{p.claimedWinRate == null ? "—" : f.fraction(p.claimedWinRate / 100)}</td>
+                    <td className="hidden px-3 py-2 text-right sm:table-cell">{f.price(p.entryClose)}</td>
                     {p.returns.map((r, i) => (
-                      <td key={i} className={`px-3 py-2 text-right ${changeColor(r)}`}>{f.signedFraction(r)}</td>
+                      <td key={i} className={`whitespace-nowrap px-2 py-2 text-right sm:px-3 ${changeColor(r)}`}>{f.signedFraction(r)}</td>
                     ))}
                   </tr>
                 ))}

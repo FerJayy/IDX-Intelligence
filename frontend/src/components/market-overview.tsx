@@ -148,14 +148,14 @@ function Movers({
   return (
     <section className="rounded-xl border border-line bg-card">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-4 pt-3">
-        <nav className="flex gap-1" aria-label={t.overview.breadth}>
+        <nav className="flex gap-0.5 sm:gap-1" aria-label={t.overview.breadth}>
           {MOVER_TABS.map((option) => (
             <Link
               key={option}
               href={`/${locale}?movers=${option}`}
               scroll={false}
               aria-current={option === tab ? "page" : undefined}
-              className={`-mb-px border-b-2 px-3 pb-2 text-sm ${
+              className={`-mb-px whitespace-nowrap border-b-2 px-2 pb-2 text-sm sm:px-3 ${
                 option === tab ? "border-accent font-semibold text-fg" : "border-transparent text-muted hover:text-fg"
               }`}
             >
@@ -187,17 +187,17 @@ function Movers({
         <table className="w-full text-sm tabular-nums">
           <thead className="text-left text-xs text-faint">
             <tr>
-              <th className="px-4 py-2 font-medium">{t.overview.ticker}</th>
+              <th className="px-3 py-2 font-medium sm:px-4">{t.overview.ticker}</th>
               <th className="hidden px-4 py-2 font-medium sm:table-cell">{t.dashboard.trend}</th>
-              <th className="px-4 py-2 text-right font-medium">{t.overview.last}</th>
-              <th className="px-4 py-2 text-right font-medium">{t.overview.change}</th>
+              <th className="whitespace-nowrap px-2 py-2 text-right font-medium sm:px-4">{t.overview.last}</th>
+              <th className="whitespace-nowrap px-3 py-2 text-right font-medium sm:px-4">{t.overview.change}</th>
               <th className="hidden px-4 py-2 text-right font-medium sm:table-cell">{t.overview.estValue}</th>
             </tr>
           </thead>
           <tbody>
             {stocks.map((s) => (
               <tr key={s.ticker} className="border-t border-line hover:bg-card-strong">
-                <td className="max-w-56 px-4 py-2">
+                <td className="w-full max-w-0 px-3 py-2 sm:px-4">
                   <Link href={`/${locale}/stocks/${s.ticker}`} className="group block">
                     <span className="font-mono font-semibold group-hover:text-accent group-hover:underline">{s.ticker}</span>
                     {s.hsc && <HscBadge label={t.hsc.badge} title={t.hsc.title} />}
@@ -212,8 +212,8 @@ function Movers({
                 <td className="hidden px-4 py-2 sm:table-cell">
                   <Sparkline values={(live ? live.sparklines : overview.sparklines)[s.ticker] ?? []} />
                 </td>
-                <td className="px-4 py-2 text-right">{f.price(s.lastPrice)}</td>
-                <td className={`px-4 py-2 text-right ${changeColor(s.changePercent)}`}>{f.percent(s.changePercent)}</td>
+                <td className="whitespace-nowrap px-2 py-2 text-right sm:px-4">{f.price(s.lastPrice)}</td>
+                <td className={`whitespace-nowrap px-3 py-2 text-right font-medium sm:px-4 ${changeColor(s.changePercent)}`}>{f.percent(s.changePercent)}</td>
                 <td className="hidden px-4 py-2 text-right sm:table-cell">{f.rupiah(s.value)}</td>
               </tr>
             ))}
