@@ -220,6 +220,7 @@ export const id: Dictionary = {
   },
   insiders: {
     title: "Transaksi orang dalam",
+    latest: (date: string) => `terbaru ${date}`,
     intro: "Direksi, komisaris dan pemegang saham besar (5%+) wajib lapor saat membeli atau menjual. Membeli dengan uang sendiri adalah tanda sedikit positif; menjual bisa karena banyak alasan. Laporan datang beberapa hari setelah transaksi.",
     bought: (shares: string) => `membeli ${shares} lembar`,
     sold: (shares: string) => `menjual ${shares} lembar`,
@@ -233,6 +234,23 @@ export const id: Dictionary = {
     unavailable: "Data orang dalam sedang tidak tersedia.",
     more: (shown: number, total: number) => `${shown} laporan terbaru dari ${total}.`,
     checked: (time: string) => `Dicek ${time}`,
+  },
+  summary: {
+    title: "Ringkasan",
+    glance: "Arus broker sekilas",
+    periods: { "10D": "10 hari terakhir", "1M": "1 bulan", "3M": "3 bulan" } as Record<string, string>,
+    periodsInline: { "10D": "10 hari terakhir", "1M": "1 bulan", "3M": "3 bulan" } as Record<string, string>,
+    fewDays: (days: number) => `baru ${days} hari data`,
+    brokersLine: (parts: string) => `Broker besar: ${parts}.`,
+    flowWords: { ACCUMULATION: "mengumpulkan", NEUTRAL: "seimbang", DISTRIBUTION: "menjual" },
+    over: (word: string, periods: string) => `${word} dalam ${periods}`,
+    and: " dan ",
+    levels: "Level harga",
+    monthRange: "Rentang 1 bulan",
+    yearRange: "Rentang 52 minggu",
+    notTracked: "Belum ada data broker untuk saham ini.",
+    note: "Menggambarkan yang sudah terjadi — bukan prediksi atau saran.",
+    unavailable: "Ringkasan sedang tidak tersedia.",
   },
   dashboard: {
     openIhsg: "Buka grafik IHSG →",
@@ -362,6 +380,7 @@ export const id: Dictionary = {
     status: { ACCUMULATION: "Akumulasi", NEUTRAL: "Netral", DISTRIBUTION: "Distribusi" },
     disclaimer:
       "Gambaran aliran broker di masa lalu berdasarkan aturan, bukan prediksi atau rekomendasi beli/jual. Aturan ini belum diuji historis.",
+    showTables: "Pembeli & penjual terbesar (per broker)",
     topBuyers: "Pembeli bersih terbesar",
     topSellers: "Penjual bersih terbesar",
     broker: "Broker",
@@ -449,5 +468,28 @@ export const id: Dictionary = {
     NEAR_LIMIT_UP: (v, f) =>
       `Naik ${f.signedFraction(n(v.change))} hari ini, kemungkinan menyentuh batas atas (ARA): sulit dibeli saat pembukaan`,
     CHASING: (v, f) => `Sudah naik ${f.signedFraction(n(v.change5d))} dalam 5 hari: risiko tinggi mengejar harga`,
+    SUM_TREND_UP: (v, f) => `Tren naik: harga di atas rata-rata 20 hari yang naik (${f.price(n(v.ma20))})`,
+    SUM_TREND_DOWN: (v, f) => `Tren turun: harga di bawah rata-rata 20 hari yang turun (${f.price(n(v.ma20))})`,
+    SUM_TREND_SIDEWAYS: (v, f) => `Belum ada tren jelas: harga bergerak di sekitar rata-rata 20 hari (${f.price(n(v.ma20))})`,
+    SUM_FOREIGN_BUYING: (v, f) => `Investor asing net beli ${f.rupiah(n(v.value))} dalam 3 bulan terakhir`,
+    SUM_FOREIGN_SELLING: (v, f) => `Investor asing net jual ${f.rupiah(Math.abs(n(v.value)))} dalam 3 bulan terakhir`,
+    SUM_FAR_ABOVE_BUYERS_COST: (v, f) =>
+      `Hati-hati: harga ${f.fraction(n(v.gap))} di atas modal pembeli utama sebulan terakhir (${f.price(n(v.averagePrice))}) — mereka mungkin ambil untung`,
+    SUM_NEAR_BUYERS_COST: (v, f) =>
+      `Harga dekat dengan modal pembeli utama sebulan terakhir (${f.price(n(v.averagePrice))})`,
+    SUM_BELOW_BUYERS_COST: (v, f) =>
+      `Harga ${f.fraction(Math.abs(n(v.gap)))} di bawah modal pembeli utama sebulan terakhir (${f.price(n(v.averagePrice))}) — mereka sedang rugi`,
+    SUM_VS_IHSG: (v, f) =>
+      v.excess3m != null
+        ? `${n(v.excess3m) >= 0 ? "Mengungguli" : "Tertinggal dari"} IHSG ${f.fraction(Math.abs(n(v.excess3m)))} dalam 3 bulan` +
+          (v.excess1m != null ? ` (${f.signedFraction(n(v.excess1m))} vs IHSG dalam 1 bulan)` : "")
+        : `${f.signedFraction(n(v.excess1m))} vs IHSG dalam 1 bulan`,
+    SUM_VOLUME_HIGH: (v, f) => `Volume tidak biasa: ${f.decimal1(n(v.ratio))}× volume harian normal`,
+    SUM_VOLUME_LOW: (v, f) => `Perdagangan sepi: hanya ${f.decimal1(n(v.ratio))}× volume harian normal`,
+    SUM_NEAR_52W_HIGH: (v, f) => `Dekat harga tertinggi 52 minggu (${f.price(n(v.high))})`,
+    SUM_NEAR_52W_LOW: (v, f) => `Dekat harga terendah 52 minggu (${f.price(n(v.low))})`,
+    SUM_INSIDER_BUYING: (v) => `Orang dalam melaporkan ${v.bought} pembelian dalam 30 hari terakhir`,
+    SUM_INSIDER_SELLING: (v) => `Orang dalam melaporkan ${v.sold} penjualan dalam 30 hari terakhir`,
+    SUM_HSC: () => "Hati-hati: masuk daftar High Shareholding Concentration BEI — segelintir pemegang menguasai hampir semua saham",
   },
 };

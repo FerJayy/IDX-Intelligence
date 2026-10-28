@@ -17,8 +17,15 @@ export async function InsiderBox({ ticker }: { ticker: string }) {
   }
 
   return (
-    <section className="rounded-xl border border-line bg-card p-4">
-      <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">{t.insiders.title}</h2>
+    <details className="group rounded-xl border border-line bg-card p-4">
+      <summary className="cursor-pointer text-sm font-semibold uppercase tracking-wide text-muted">
+        {t.insiders.title}
+        {data && data.transactions.length > 0 && (
+          <span className="ml-2 font-normal normal-case tracking-normal text-faint">
+            {t.insiders.latest(f.tradingDate(data.transactions[0].date))}
+          </span>
+        )}
+      </summary>
       <p className="mt-1 text-xs text-faint">{t.insiders.intro}</p>
       {!data ? (
         <p className="mt-3 text-sm text-faint">{t.insiders.unavailable}</p>
@@ -47,7 +54,7 @@ export async function InsiderBox({ ticker }: { ticker: string }) {
           {data.fetchedAt && <> · {t.insiders.checked(f.jakartaTime(data.fetchedAt))}</>}
         </p>
       )}
-    </section>
+    </details>
   );
 }
 

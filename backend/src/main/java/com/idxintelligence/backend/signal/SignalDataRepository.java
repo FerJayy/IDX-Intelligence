@@ -73,6 +73,26 @@ public class SignalDataRepository {
         return bars;
     }
 
+    /** Same as {@link #adjustedBars(LocalDate, boolean)} for one stock, oldest first. */
+    List<Bar> adjustedBars(String ticker, LocalDate from) {
+        return jdbc.sql("""
+                SELECT trade_date, open, high, low, close, adjusted_close, volume
+                FROM daily_price WHERE ticker = ? AND trade_date >= ?
+                ORDER BY trade_date
+                """)
+                .params(ticker, Date.valueOf(from))
+                .query((rs, n) -> {
+                    double close = rs.getDouble("close");
+                    BigDecimal adjusted = rs.getBigDecimal("adjusted_close");
+                    double factor = adjusted == null || close == 0 ? 1 : adjusted.doubleValue() / close;
+                    Long volume = rs.getObject("volume", Long.class);
+                    return new Bar(rs.getDate("trade_date").toLocalDate(), scaled(rs.getBigDecimal("open"), factor),
+                            scaled(rs.getBigDecimal("high"), factor), scaled(rs.getBigDecimal("low"), factor),
+                            close * factor, volume == null ? 0 : volume);
+                })
+                .list();
+    }
+
     /** IHSG open and close by date, for comparing returns with the market. */
     Map<LocalDate, double[]> compositeIndex(LocalDate from) {
         Map<LocalDate, double[]> index = new HashMap<>();

@@ -52,10 +52,13 @@ export async function BrokerActivity({ summary }: { summary: BrokerSummary }) {
         <p className="mt-4 text-xs text-faint">{t.broker.disclaimer}</p>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <BrokerTable title={t.broker.topBuyers} positions={summary.topBuyers} side="buy" locale={locale} t={t} f={f} />
-        <BrokerTable title={t.broker.topSellers} positions={summary.topSellers} side="sell" locale={locale} t={t} f={f} />
-      </div>
+      <details className="rounded-xl border border-line bg-card p-4">
+        <summary className="cursor-pointer text-sm font-semibold">{t.broker.showTables}</summary>
+        <div className="mt-3 grid gap-4 lg:grid-cols-2">
+          <BrokerTable title={t.broker.topBuyers} positions={summary.topBuyers} side="buy" locale={locale} t={t} f={f} />
+          <BrokerTable title={t.broker.topSellers} positions={summary.topSellers} side="sell" locale={locale} t={t} f={f} />
+        </div>
+      </details>
 
       <details className="rounded-xl border border-line bg-card p-4 text-sm">
         <summary className="cursor-pointer font-semibold">{t.broker.howToRead}</summary>

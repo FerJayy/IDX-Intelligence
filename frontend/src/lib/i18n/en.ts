@@ -225,6 +225,7 @@ export const en = {
   },
   insiders: {
     title: "Insider transactions",
+    latest: (date: string) => `latest ${date}`,
     intro: "Directors, commissioners and big shareholders (5%+) must report when they buy or sell. Buying with their own money is a mildly positive sign; selling happens for many reasons. Reports arrive days after the trade.",
     bought: (shares: string) => `bought ${shares} shares`,
     sold: (shares: string) => `sold ${shares} shares`,
@@ -238,6 +239,23 @@ export const en = {
     unavailable: "Insider data is unavailable right now.",
     more: (shown: number, total: number) => `Latest ${shown} of ${total} reports.`,
     checked: (time: string) => `Checked ${time}`,
+  },
+  summary: {
+    title: "Summary",
+    glance: "Broker flow at a glance",
+    periods: { "10D": "Last 10 days", "1M": "1 month", "3M": "3 months" } as Record<string, string>,
+    periodsInline: { "10D": "the last 10 days", "1M": "1 month", "3M": "3 months" } as Record<string, string>,
+    fewDays: (days: number) => `only ${days} days of data`,
+    brokersLine: (parts: string) => `Big brokers: ${parts}.`,
+    flowWords: { ACCUMULATION: "collecting", NEUTRAL: "balanced", DISTRIBUTION: "selling" },
+    over: (word: string, periods: string) => `${word} over ${periods}`,
+    and: " and ",
+    levels: "Price levels",
+    monthRange: "1-month range",
+    yearRange: "52-week range",
+    notTracked: "No broker data for this stock yet.",
+    note: "Describes what already happened — not a prediction or advice.",
+    unavailable: "Summary unavailable right now.",
   },
   dashboard: {
     openIhsg: "Open IHSG chart →",
@@ -367,6 +385,7 @@ export const en = {
     status: { ACCUMULATION: "Accumulation", NEUTRAL: "Neutral", DISTRIBUTION: "Distribution" },
     disclaimer:
       "Rule-based description of past broker flow, not a forecast or a recommendation to buy or sell. The rules have not been backtested yet.",
+    showTables: "Top buyers & sellers (by broker)",
     topBuyers: "Top net buyers",
     topSellers: "Top net sellers",
     broker: "Broker",
@@ -452,6 +471,29 @@ export const en = {
       `Low liquidity: averages ${f.rupiah(n(v.avgValue))} traded per day (minimum ${f.rupiah(n(v.minValue))})`,
     NEAR_LIMIT_UP: (v, f) => `Up ${f.signedFraction(n(v.change))} today, likely at the daily limit: hard to buy at the open`,
     CHASING: (v, f) => `Already up ${f.signedFraction(n(v.change5d))} in 5 days: high risk of chasing`,
+    SUM_TREND_UP: (v, f) => `Uptrend: price is above its rising 20-day average (${f.price(n(v.ma20))})`,
+    SUM_TREND_DOWN: (v, f) => `Downtrend: price is below its falling 20-day average (${f.price(n(v.ma20))})`,
+    SUM_TREND_SIDEWAYS: (v, f) => `No clear trend: price is moving around its 20-day average (${f.price(n(v.ma20))})`,
+    SUM_FOREIGN_BUYING: (v, f) => `Foreign investors net bought ${f.rupiah(n(v.value))} over the last 3 months`,
+    SUM_FOREIGN_SELLING: (v, f) => `Foreign investors net sold ${f.rupiah(Math.abs(n(v.value)))} over the last 3 months`,
+    SUM_FAR_ABOVE_BUYERS_COST: (v, f) =>
+      `Watch out: price is ${f.fraction(n(v.gap))} above what last month's main buyers paid (${f.price(n(v.averagePrice))}) — they may take profit`,
+    SUM_NEAR_BUYERS_COST: (v, f) =>
+      `Price is close to what last month's main buyers paid (${f.price(n(v.averagePrice))})`,
+    SUM_BELOW_BUYERS_COST: (v, f) =>
+      `Price is ${f.fraction(Math.abs(n(v.gap)))} below what last month's main buyers paid (${f.price(n(v.averagePrice))}) — they are at a loss`,
+    SUM_VS_IHSG: (v, f) =>
+      v.excess3m != null
+        ? `${n(v.excess3m) >= 0 ? "Beat" : "Lagged"} IHSG by ${f.fraction(Math.abs(n(v.excess3m)))} over 3 months` +
+          (v.excess1m != null ? ` (${f.signedFraction(n(v.excess1m))} vs IHSG over 1 month)` : "")
+        : `${f.signedFraction(n(v.excess1m))} vs IHSG over 1 month`,
+    SUM_VOLUME_HIGH: (v, f) => `Unusual volume: ${f.decimal1(n(v.ratio))}× the normal daily volume`,
+    SUM_VOLUME_LOW: (v, f) => `Quiet trading: only ${f.decimal1(n(v.ratio))}× the normal daily volume`,
+    SUM_NEAR_52W_HIGH: (v, f) => `Near its 52-week high (${f.price(n(v.high))})`,
+    SUM_NEAR_52W_LOW: (v, f) => `Near its 52-week low (${f.price(n(v.low))})`,
+    SUM_INSIDER_BUYING: (v) => `Insiders reported ${v.bought} purchase${n(v.bought) === 1 ? "" : "s"} in the last 30 days`,
+    SUM_INSIDER_SELLING: (v) => `Insiders reported ${v.sold} sale${n(v.sold) === 1 ? "" : "s"} in the last 30 days`,
+    SUM_HSC: () => "Watch out: on IDX's High Shareholding Concentration list — a few holders own almost all shares",
   } satisfies Record<string, ReasonText>,
 };
 

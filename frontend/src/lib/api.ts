@@ -464,6 +464,26 @@ export async function getInsiders(ticker: string): Promise<Insiders> {
   return response.json();
 }
 
+// Mirrors StockSummaryService in backend/.../signal.
+export type FlowPeriod = { period: "10D" | "1M" | "3M"; status: FlowStatus; brokerDays: number };
+
+export type StockSummary = {
+  ticker: string;
+  dataDate: string | null;
+  brokerTracked: boolean;
+  flows: FlowPeriod[];
+  facts: Reason[]; // points: +1 supportive, -1 warning, 0 context
+  levels: { last: number | null; monthLow: number | null; monthHigh: number | null; yearLow: number | null; yearHigh: number | null } | null;
+};
+
+export async function getStockSummary(ticker: string): Promise<StockSummary> {
+  const response = await fetch(`${API_BASE_URL}/api/stocks/${encodeURIComponent(ticker)}/summary`);
+  if (!response.ok) {
+    throw new Error(`Summary request failed: ${response.status}`);
+  }
+  return response.json();
+}
+
 /** Returns null when the backend does not know the ticker. */
 export async function getStock(ticker: string): Promise<StockDetail | null> {
   const response = await fetch(`${API_BASE_URL}/api/stocks/${encodeURIComponent(ticker)}`);

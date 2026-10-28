@@ -23,6 +23,7 @@ import { HscBadge } from "./hsc-badge";
 import { InsiderBox } from "./insider-box";
 import { LivePrice } from "./live-price";
 import { PriceChart } from "./price-chart";
+import { StockSummaryCard } from "./stock-summary";
 import { WatchButton } from "./watch-button";
 
 export async function StockOverview({
@@ -105,6 +106,12 @@ export async function StockOverview({
       )}
 
       {!stock.demo && <LivePrice ticker={quote.ticker} locale={locale} labels={t.live} />}
+
+      {!stock.demo && (
+        <Suspense fallback={<p className="rounded-xl border border-line p-4 text-sm text-faint">{t.common.loadingMarket}</p>}>
+          <StockSummaryCard ticker={quote.ticker} />
+        </Suspense>
+      )}
 
       <section className="space-y-4 rounded-xl border border-line bg-card p-4">
         <ChartControls
