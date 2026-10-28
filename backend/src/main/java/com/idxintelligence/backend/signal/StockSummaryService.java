@@ -54,8 +54,9 @@ public class StockSummaryService {
     }
 
     /** Recent range: support/resistance = last month's low/high; the 52-week range for context. */
+    /** @param fullYear at least ~6 months of prices, enough for a meaningful 52-week high/low */
     public record Levels(BigDecimal last, BigDecimal monthLow, BigDecimal monthHigh, BigDecimal yearLow,
-                         BigDecimal yearHigh) {
+                         BigDecimal yearHigh, boolean fullYear) {
     }
 
     /**
@@ -95,11 +96,11 @@ public class StockSummaryService {
         // Trend: the same "above a rising 20-day average" test the Radar and the backtest use.
         if (f != null) {
             if (f.aboveRisingMa20()) {
-                facts.add(Reason.of("SUM_TREND_UP", 1, "ma20", Math.round(f.ma20())));
+                facts.add(Reason.of("SUM_TREND_UP", 1, "ma20", Math.round(f.ma20()), "rising", f.ma20Rising()));
             } else if (f.close() < f.ma20() && !f.ma20Rising()) {
-                facts.add(Reason.of("SUM_TREND_DOWN", -1, "ma20", Math.round(f.ma20())));
+                facts.add(Reason.of("SUM_TREND_DOWN", -1, "ma20", Math.round(f.ma20()), "rising", f.ma20Rising()));
             } else {
-                facts.add(Reason.of("SUM_TREND_SIDEWAYS", 0, "ma20", Math.round(f.ma20())));
+                facts.add(Reason.of("SUM_TREND_SIDEWAYS", 0, "ma20", Math.round(f.ma20()), "rising", f.ma20Rising()));
             }
         }
 
@@ -165,7 +166,7 @@ public class StockSummaryService {
             levels = new Levels(last,
                     price(month.stream().mapToDouble(StockSummaryService::low).min().orElse(Double.NaN)),
                     price(month.stream().mapToDouble(StockSummaryService::high).max().orElse(Double.NaN)),
-                    price(yearLow), price(yearHigh));
+                    price(yearLow), price(yearHigh), year.size() >= 120);
             double close = bars.getLast().close();
             if (year.size() >= 120 && close >= yearHigh * 0.95) {
                 facts.add(Reason.of("SUM_NEAR_52W_HIGH", 0, "high", price(yearHigh), "gap", close / yearHigh - 1));

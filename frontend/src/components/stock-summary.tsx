@@ -1,9 +1,10 @@
 import { unstable_rethrow } from "next/navigation";
 import { getStockSummary, type FlowStatus, type StockSummary } from "@/lib/api";
-import type { Format } from "@/lib/format";
 import { getI18n } from "@/lib/i18n";
 import type { Dictionary } from "@/lib/i18n/en";
 import { describe } from "@/lib/i18n/reasons";
+import { RangeBars } from "./range-bars";
+import { SummaryLines, type LiveRule, type SummaryLine } from "./summary-lines";
 
 // Status always shows an icon and a word, never colour alone.
 const STATUS: Record<FlowStatus, { icon: string; className: string }> = {
@@ -16,7 +17,7 @@ const MAX_LINES = 6;
 
 /** The short overview at the top of a stock page: broker flow per period and a few plain facts. */
 export async function StockSummaryCard({ ticker }: { ticker: string }) {
-  const { t, f } = await getI18n();
+  const { locale, t, f } = await getI18n();
   let summary: StockSummary;
   try {
     summary = await getStockSummary(ticker);
@@ -26,14 +27,28 @@ export async function StockSummaryCard({ ticker }: { ticker: string }) {
     return <p className="rounded-xl border border-line p-4 text-sm text-faint">{t.summary.unavailable}</p>;
   }
   const s = t.summary;
-  const [trend, ...others] = summary.facts.filter((r) => r.code.startsWith("SUM_TREND_")).concat(
-    summary.facts.filter((r) => !r.code.startsWith("SUM_TREND_")),
-  );
+  const trend = summary.facts.find((r) => r.code.startsWith("SUM_TREND_"));
+  const range = summary.facts.find((r) => r.code.startsWith("SUM_NEAR_52W_"));
+  const others = summary.facts.filter((r) => r !== trend && r !== range);
   const brokers = brokersLine(summary, t);
-  const lines: { text: string; points: number | null }[] = [
-    ...(trend ? [{ text: describe(trend, t, f), points: trend.points }] : []),
-    ...(brokers ? [{ text: brokers, points: null }] : []),
-    ...others.map((r) => ({ text: describe(r, t, f), points: r.points })),
+  const n = (v: unknown) => Number(v);
+  // Price-dependent lines carry a rule, so the browser can redo them with the live price.
+  const liveRule = (code: string, v: Record<string, unknown>): LiveRule | undefined =>
+    code.startsWith("SUM_TREND_")
+      ? { kind: "trend", ma20: n(v.ma20), rising: v.rising === true }
+      : code.endsWith("_BUYERS_COST")
+        ? { kind: "cost", averagePrice: n(v.averagePrice) }
+        : undefined;
+  const levels = summary.levels;
+  const lines: SummaryLine[] = [
+    ...(trend ? [{ key: "trend", text: describe(trend, t, f), points: trend.points, live: liveRule(trend.code, trend.values) }] : []),
+    ...(brokers ? [{ key: "brokers", text: brokers, points: null }] : []),
+    ...others.map((r) => ({ key: r.code, text: describe(r, t, f), points: r.points, live: liveRule(r.code, r.values) })),
+    // Shown only near a 52-week extreme, at the last close or at the live price.
+    ...(levels?.fullYear && levels.yearHigh != null && levels.yearLow != null
+      ? [{ key: "range", text: range ? describe(range, t, f) : null, points: range?.points ?? null,
+          live: { kind: "range" as const, high: levels.yearHigh, low: levels.yearLow } }]
+      : []),
   ].slice(0, MAX_LINES);
 
   return (
@@ -62,18 +77,20 @@ export async function StockSummaryCard({ ticker }: { ticker: string }) {
         !summary.brokerTracked && <p className="mt-2 text-xs text-faint">{s.notTracked}</p>
       )}
 
-      <ul className="mt-3 space-y-1.5 text-sm leading-relaxed">
-        {lines.map((line) => (
-          <li key={line.text} className="flex gap-2">
-            <span aria-hidden className={line.points == null || line.points === 0 ? "text-faint" : line.points > 0 ? "text-up" : "text-warn-fg"}>
-              {line.points != null && line.points < 0 ? "⚠" : "•"}
-            </span>
-            <span>{line.text}</span>
-          </li>
-        ))}
-      </ul>
+      <SummaryLines ticker={summary.ticker} locale={locale} lines={lines} labels={s.live} />
 
-      {summary.levels && <Levels levels={summary.levels} t={t} f={f} />}
+      {summary.levels && (
+        <RangeBars
+          ticker={summary.ticker}
+          locale={locale}
+          close={summary.levels.last}
+          title={s.levels}
+          rows={[
+            { label: s.monthRange, low: summary.levels.monthLow, high: summary.levels.monthHigh },
+            { label: s.yearRange, low: summary.levels.yearLow, high: summary.levels.yearHigh },
+          ]}
+        />
+      )}
       <p className="mt-3 text-xs text-faint">{s.note}</p>
     </section>
   );
@@ -92,44 +109,4 @@ function brokersLine(summary: StockSummary, t: Dictionary): string | null {
     t.summary.over(t.summary.flowWords[status], periods.join(t.summary.and)),
   );
   return t.summary.brokersLine(parts.join("; "));
-}
-
-function Levels({ levels, t, f }: { levels: NonNullable<StockSummary["levels"]>; t: Dictionary; f: Format }) {
-  const rows = [
-    { label: t.summary.monthRange, low: levels.monthLow, high: levels.monthHigh },
-    { label: t.summary.yearRange, low: levels.yearLow, high: levels.yearHigh },
-  ];
-  return (
-    <div className="mt-4">
-      <p className="text-xs text-faint">{t.summary.levels}</p>
-      <dl className="mt-1 space-y-3 text-xs tabular-nums">
-        {rows.map((row) => {
-          const span = row.low != null && row.high != null && levels.last != null && row.high > row.low ? row.high - row.low : null;
-          const position = span == null ? null : Math.min(1, Math.max(0, (levels.last! - row.low!) / span));
-          return (
-            <div key={row.label}>
-              <dt className="text-muted">{row.label}</dt>
-              <dd className="mt-0.5 flex items-center gap-2 pt-4">
-                <span className="w-14 text-right text-muted">{f.price(row.low)}</span>
-                <span className="relative h-1.5 flex-1 rounded-full bg-chip">
-                  {position != null && (
-                    <>
-                      {/* The current price sits above its dot: phones can't hover, so it is always shown. */}
-                      <span className="absolute -top-5 -translate-x-1/2 whitespace-nowrap font-semibold text-fg"
-                        style={{ left: `${Math.min(92, Math.max(8, position * 100))}%` }}>
-                        {f.price(levels.last)}
-                      </span>
-                      <span aria-hidden className="absolute top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-card bg-fg"
-                        style={{ left: `${position * 100}%` }} />
-                    </>
-                  )}
-                </span>
-                <span className="w-14 text-muted">{f.price(row.high)}</span>
-              </dd>
-            </div>
-          );
-        })}
-      </dl>
-    </div>
-  );
 }

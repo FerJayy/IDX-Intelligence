@@ -524,7 +524,14 @@ export type StockSummary = {
   brokerTracked: boolean;
   flows: FlowPeriod[];
   facts: Reason[]; // points: +1 supportive, -1 warning, 0 context
-  levels: { last: number | null; monthLow: number | null; monthHigh: number | null; yearLow: number | null; yearHigh: number | null } | null;
+  levels: {
+    last: number | null;
+    monthLow: number | null;
+    monthHigh: number | null;
+    yearLow: number | null;
+    yearHigh: number | null;
+    fullYear: boolean; // enough history for a meaningful 52-week range
+  } | null;
 };
 
 export async function getStockSummary(ticker: string): Promise<StockSummary> {
