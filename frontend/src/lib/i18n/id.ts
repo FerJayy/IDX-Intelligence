@@ -8,6 +8,13 @@ export const id: Dictionary = {
     title: "IDX Intelligence",
     description: "Riset saham Bursa Efek Indonesia: harga, aktivitas broker, dan sinyal yang diuji historis",
   },
+  footer: {
+    createdBy: "Dibuat oleh",
+    contact: "Ada pertanyaan, ide, atau menemukan bug? Hubungi:",
+    email: "Email",
+    linkedin: "LinkedIn",
+    notAdvice: "Alat riset untuk penggunaan pribadi — bukan saran investasi.",
+  },
   common: {
     appName: "IDX Intelligence",
     tagline: "Alat riset saham IDX — bukan saran investasi.",

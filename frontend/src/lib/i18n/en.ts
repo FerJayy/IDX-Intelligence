@@ -12,6 +12,13 @@ export const en = {
     title: "IDX Intelligence",
     description: "Indonesian Stock Exchange research: prices, broker activity and backtested signals",
   },
+  footer: {
+    createdBy: "Created by",
+    contact: "Questions, ideas or found a bug? Get in touch:",
+    email: "Email",
+    linkedin: "LinkedIn",
+    notAdvice: "Research tool for personal use — not investment advice.",
+  },
   common: {
     appName: "IDX Intelligence",
     tagline: "IDX research tool — not investment advice.",

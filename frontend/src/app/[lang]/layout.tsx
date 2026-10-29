@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { SiteFooter } from "@/components/site-footer";
 import { getI18n } from "@/lib/i18n";
 import { LOCALES } from "@/lib/i18n/locales";
 import "../globals.css";
@@ -35,6 +36,7 @@ export default async function RootLayout({ children }: LayoutProps<"/[lang]">) {
       <body className="flex min-h-full flex-col bg-page text-fg">
         {/* The header comes from the group layouts: (site) has the full menu, (auth) only the name. */}
         {children}
+        <SiteFooter />
       </body>
     </html>
   );
