@@ -66,6 +66,46 @@ class PriceImportServiceTests extends EmbeddedPostgresTest {
     }
 
     @Test
+    void aRunWhereYahooRefusedMostStocksDoesNotCountAsDone() {
+        ZonedDateTime evening = DURING_TRADING.withHour(23).withMinute(56);
+        long run = repository.startRun("YAHOO", evening.minusMinutes(40).toInstant());
+        repository.finishRun(run, evening.minusMinutes(2).toInstant(), 130, 800, 130, "HTTP 429 ...");
+
+        assertThat(service(evening).importAll(true).alreadyDone()).isFalse();
+    }
+
+    @Test
+    void stopsAfterManyFailuresInARow() {
+        when(yahoo.dailyBars(anyString(), any(), any()))
+                .thenThrow(new org.springframework.web.client.HttpClientErrorException(org.springframework.http.HttpStatus.FORBIDDEN));
+
+        PriceImportService.ImportResult result = service(DURING_TRADING).importAll();
+
+        verify(yahoo, times(PriceImportService.MAX_FAILURES_IN_A_ROW)).dailyBars(anyString(), any(), any());
+        assertThat(result.failures().getLast()).startsWith("stopped after");
+    }
+
+    @Test
+    void ifDueStillCatchesUpAnIndexThatFailedTonight() {
+        ZonedDateTime evening = DURING_TRADING.withHour(19).withMinute(40);
+        jdbc.sql("DELETE FROM index_daily").update();
+        // Stocks have Monday, but IHSG stopped at Friday (its request failed after the stocks).
+        jdbc.sql("INSERT INTO daily_price (ticker, trade_date, close, volume, source) VALUES ('BBCA', ?, 100, 1000, 'TEST')")
+                .param(java.sql.Date.valueOf(TODAY)).update();
+        jdbc.sql("INSERT INTO index_daily (code, trade_date, close, source) VALUES ('COMPOSITE', ?, 5000, 'TEST')")
+                .param(java.sql.Date.valueOf(FRIDAY)).update();
+        long run = repository.startRun("YAHOO", evening.minusHours(2).toInstant());
+        repository.finishRun(run, evening.minusHours(1).toInstant(), 900, 1, 900, "COMPOSITE: HTTP 429");
+        when(yahoo.dailyBarsForSymbol(eq("^JKSE"), any(), any())).thenReturn(List.of(bar(TODAY, "5050", 1L)));
+
+        PriceImportService.ImportResult result = service(evening).importAll(true);
+
+        assertThat(result.alreadyDone()).isTrue();
+        verify(yahoo, times(0)).dailyBars(anyString(), any(), any());   // the stocks aren't fetched again
+        assertThat(repository.latestIndexDate("COMPOSITE")).isEqualTo(TODAY);
+    }
+
+    @Test
     void firstRunBackfillsAndSkipsUnfinishedAndPlaceholderBars() {
         when(yahoo.dailyBars(anyString(), any(), any())).thenReturn(List.of(
                 bar(FRIDAY.minusDays(1), "5175", 286_928_500L),

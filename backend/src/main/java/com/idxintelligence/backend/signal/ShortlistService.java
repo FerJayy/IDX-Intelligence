@@ -6,6 +6,7 @@ import com.idxintelligence.backend.broker.BrokerDailyActivity;
 import com.idxintelligence.backend.broker.BrokerPosition;
 import com.idxintelligence.backend.broker.DailyBrokerFlow;
 import com.idxintelligence.backend.broker.FlowAssessment;
+import com.idxintelligence.backend.market.TodayPriceSource;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
 
@@ -66,6 +67,11 @@ public class ShortlistService {
      */
     public record Candidate(String ticker, String name, boolean hsc, int passed, boolean eligible, BigDecimal lastPrice,
                             Double changePercent, List<Reason> checks) {
+
+        /** The same candidate showing today's price; the checks stay on the stored end-of-day data. */
+        Candidate withPrice(BigDecimal price, Double change) {
+            return new Candidate(ticker, name, hsc, passed, eligible, price, change, checks);
+        }
     }
 
     /** Hard filters first, then most checks passed, then strongest against IHSG. */
@@ -88,9 +94,24 @@ public class ShortlistService {
     /**
      * @param candidates every tracked stock with enough history, most checks passed first
      * @param record     the shortlist replayed on past broker days
+     * @param pricesAsOf set when the shown prices are today's (delayed) rather than the stored close
      */
     public record Shortlist(OffsetDateTime generatedAt, LocalDate priceDate, LocalDate brokerDate, int checks,
-                            int size, List<Candidate> candidates, RadarTrackRecordService.TrackRecord record) {
+                            int size, List<Candidate> candidates, RadarTrackRecordService.TrackRecord record,
+                            OffsetDateTime pricesAsOf) {
+
+        /** Prices only: the ranking and checks are end-of-day by design (broker data arrives in the evening). */
+        public Shortlist withTodayPrices(TodayPriceSource.TodayPrices today) {
+            if (priceDate != null && !priceDate.isBefore(today.asOf().toLocalDate())) return this;
+            List<Candidate> shown = candidates.stream().map(c -> {
+                TodayPriceSource.TodayPrice p = today.prices().get(c.ticker());
+                if (p == null || p.price() == null) return c;
+                Double change = p.previousClose() == null || p.previousClose().signum() <= 0 ? null
+                        : (p.price().doubleValue() / p.previousClose().doubleValue() - 1) * 100;
+                return c.withPrice(p.price(), change);
+            }).toList();
+            return new Shortlist(generatedAt, priceDate, brokerDate, checks, size, shown, record, today.asOf());
+        }
     }
 
     record Pick(LocalDate date, Candidate candidate, double[] net, double[] excess) {
@@ -126,7 +147,7 @@ public class ShortlistService {
                 })
                 .list();
         if (firstBrokerDay == null || names.isEmpty()) {
-            return new Shortlist(OffsetDateTime.now(BacktestService.JAKARTA), null, null, CHECKS, SIZE, List.of(), null);
+            return new Shortlist(OffsetDateTime.now(BacktestService.JAKARTA), null, null, CHECKS, SIZE, List.of(), null, null);
         }
         Map<String, List<BrokerDailyActivity>> activity = radar.activity(firstBrokerDay);
         Map<String, List<Bar>> bars = prices.adjustedBars(firstBrokerDay.minusDays(PRICE_LEAD_DAYS), true);
@@ -183,7 +204,7 @@ public class ShortlistService {
 
         today.sort(RANKING);
         return new Shortlist(OffsetDateTime.now(BacktestService.JAKARTA), priceDate, brokerDate, CHECKS, SIZE, today,
-                trackRecord(picks));
+                trackRecord(picks), null);
     }
 
     /** The eight checks for one stock on one day (bars end on that day), or null without enough price history. */

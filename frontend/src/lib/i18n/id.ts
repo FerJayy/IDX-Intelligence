@@ -372,6 +372,8 @@ export const id: Dictionary = {
       ALL: "Semua saham dipantau (pembanding)",
     } as Record<string, string>,
     dataAsOf: (prices: string, brokers: string) => `Harga sampai ${prices} · data broker sampai ${brokers}`,
+    todayPrices: (time: string) =>
+      `Harga dan perubahan adalah hari ini, per ${time} (Yahoo, tertunda sekitar 10 menit). Syarat-syarat tetap memakai penutupan dan data broker terakhir, yang masuk malam hari.`,
     empty: "Belum ada saham dipantau dengan riwayat cukup.",
     unavailable: "Daftar sedang tidak tersedia.",
   },

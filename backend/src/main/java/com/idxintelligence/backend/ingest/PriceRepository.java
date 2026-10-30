@@ -95,6 +95,14 @@ public class PriceRepository {
         return bars.size();
     }
 
+    /** The newest trading day any stock has a bar for (what the indices should reach too). */
+    public LocalDate latestStockDate() {
+        return jdbc.sql("SELECT max(trade_date) FROM daily_price")
+                .query(LocalDate.class)
+                .optional()
+                .orElse(null);
+    }
+
     public LocalDate latestIndexDate(String code) {
         return jdbc.sql("SELECT max(trade_date) FROM index_daily WHERE code = ?")
                 .param(code)
@@ -131,8 +139,15 @@ public class PriceRepository {
     }
 
     /** When the last run of this source that stored any stock finished, or null. */
+    /**
+     * The last run that fetched nearly every stock: one where Yahoo refused most requests (2026-10-29: every
+     * stock after BRIS failed) must not count, or later runs skip the day and the prices stay a day behind.
+     */
     public Instant lastSuccessfulRun(String source) {
-        return jdbc.sql("SELECT max(finished_at) FROM import_run WHERE source = ? AND finished_at IS NOT NULL AND stocks_ok > 0")
+        return jdbc.sql("""
+                        SELECT max(finished_at) FROM import_run
+                        WHERE source = ? AND finished_at IS NOT NULL AND stocks_ok > 0 AND stocks_failed * 20 <= stocks_ok
+                        """)
                 .param(source)
                 .query(Timestamp.class)
                 .optional()

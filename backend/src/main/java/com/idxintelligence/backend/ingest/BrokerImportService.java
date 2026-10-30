@@ -9,8 +9,10 @@ import org.springframework.stereotype.Service;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -25,6 +27,8 @@ public class BrokerImportService {
     static final String SOURCE = "IDX_EDGE";
     private static final Logger log = LoggerFactory.getLogger(BrokerImportService.class);
     private static final int MAX_CONSECUTIVE_FAILURES = 5;
+    /** Empty summaries in a row (for stocks that traded) before a whole day counts as not published yet. */
+    static final int EMPTY_STOCKS_FOR_UNPUBLISHED_DAY = 3;
 
     private final IdxEdgeClient client;
     private final BrokerImportRepository repository;
@@ -130,6 +134,7 @@ public class BrokerImportService {
         LocalDate newest = null;
         LocalDate oldest = null;
         Set<LocalDate> notPublished = new HashSet<>();
+        Map<LocalDate, Integer> emptyInARow = new HashMap<>();
 
         for (BrokerImportRepository.PendingDay day : work) {
             if (remaining != null && remaining <= reserve) {
@@ -164,15 +169,22 @@ public class BrokerImportService {
 
             if (result.brokers().isEmpty()) {
                 if (day.volume() != null && day.volume() > 0) {
-                    // The stock traded, so an empty summary means the provider hasn't published this day yet.
-                    // Leave it pending for a later run and skip the rest of that day.
-                    notPublished.add(day.tradeDate());
-                    log.info("Broker summary for {} not published yet; will retry later", day.tradeDate());
+                    // The stock traded, so an empty summary means the provider hasn't published it yet: leave it
+                    // pending. Only several empty stocks in a row mean the whole day is missing; one late stock
+                    // must not hold back every stock after it in the alphabet.
+                    int empties = emptyInARow.merge(day.tradeDate(), 1, Integer::sum);
+                    if (empties >= EMPTY_STOCKS_FOR_UNPUBLISHED_DAY) {
+                        notPublished.add(day.tradeDate());
+                        log.info("Broker summaries for {} not published yet; will retry later", day.tradeDate());
+                    } else {
+                        log.info("Broker summary for {} {} {} empty; will retry later", day.ticker(), day.tradeDate(), day.flow());
+                    }
                     pause();
                     continue;
                 }
             }
 
+            emptyInARow.remove(day.tradeDate());
             if (day.flow() == IdxEdgeClient.Flow.ALL) {
                 rows += repository.saveAll(day.ticker(), day.tradeDate(), result.brokers(), SOURCE);
                 checkBalance(day, result.brokers());

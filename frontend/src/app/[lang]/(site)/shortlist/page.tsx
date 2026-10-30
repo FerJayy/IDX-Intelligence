@@ -76,6 +76,11 @@ async function ShortlistBody() {
         {" · "}
         {s.scope(list.candidates.length)}
       </p>
+      {list.pricesAsOf && (
+        <p className="rounded-lg border border-info-line bg-info-bg px-3 py-2 text-xs text-info-fg">
+          {s.todayPrices(f.jakartaTime(list.pricesAsOf))}
+        </p>
+      )}
 
       {list.record && topExcess != null && allExcess != null && (
         <section className="rounded-xl border border-line bg-card p-4 text-sm">

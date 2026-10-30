@@ -71,12 +71,16 @@ public class PriceImportService {
             Instant last = repository.lastSuccessfulRun(SOURCE);
             ZonedDateTime now = clock.instant().atZone(YahooFinanceClient.JAKARTA);
             Instant dueFrom = now.toLocalDate().atTime(DAY_FINAL_AFTER).atZone(YahooFinanceClient.JAKARTA).toInstant();
-            if (last != null && !now.toLocalTime().isBefore(DAY_FINAL_AFTER) && !last.isBefore(dueFrom)) {
+            boolean stocksDone = (last != null && !now.toLocalTime().isBefore(DAY_FINAL_AFTER) && !last.isBefore(dueFrom))
+                    // after midnight: yesterday evening's run already has the day
+                    || (last != null && now.toLocalTime().isBefore(DAY_FINAL_AFTER)
+                    && !last.isBefore(now.toLocalDate().minusDays(1).atTime(DAY_FINAL_AFTER).atZone(YahooFinanceClient.JAKARTA).toInstant()));
+            if (stocksDone) {
+                // The stocks are in, but IHSG can still be missing (its request failed after ~960 stock
+                // requests): one cheap request each later run until it's there.
+                List<String> failures = new ArrayList<>();
+                importIndices(lastFinalDay(now), true, failures);
                 return ImportResult.nothingDue();
-            }
-            if (last != null && now.toLocalTime().isBefore(DAY_FINAL_AFTER)
-                    && !last.isBefore(now.toLocalDate().minusDays(1).atTime(DAY_FINAL_AFTER).atZone(YahooFinanceClient.JAKARTA).toInstant())) {
-                return ImportResult.nothingDue();   // after midnight: yesterday evening's run already has the day
             }
         }
         if (!running.compareAndSet(false, true)) {
@@ -93,19 +97,26 @@ public class PriceImportService {
         Instant started = clock.instant();
         long runId = repository.startRun(SOURCE, started);
         ZonedDateTime now = started.atZone(YahooFinanceClient.JAKARTA);
-        LocalDate lastFinalDay = now.toLocalTime().isBefore(DAY_FINAL_AFTER)
-                ? now.toLocalDate().minusDays(1)
-                : now.toLocalDate();
+        LocalDate lastFinalDay = lastFinalDay(now);
 
         int ok = 0;
-        int rows = 0;
         List<String> failures = new ArrayList<>();
+        // Indices first: after hundreds of stock requests Yahoo tends to answer 429, and a missing IHSG
+        // bar makes the dashboard, charts and every "vs IHSG" figure lag a day.
+        int rows = importIndices(lastFinalDay, false, failures);
         LocalDate today = now.toLocalDate();
         int skippedMissing = repository.trackedTickers().size();
         List<String> tickers = repository.importableTickers(today);
         skippedMissing -= tickers.size();
         int notFound = 0;
+        int failedInARow = 0;
         for (String ticker : tickers) {
+            if (failedInARow >= MAX_FAILURES_IN_A_ROW) {
+                // Yahoo is refusing us: stop instead of spending half an hour on failures; the next scheduled
+                // run (this run doesn't count as done) starts over.
+                failures.add("stopped after " + failedInARow + " failures in a row; " + (tickers.size() - ok - failures.size() - notFound) + " stocks not tried");
+                break;
+            }
             try {
                 LocalDate latest = repository.latestTradeDate(ticker);
                 LocalDate from = latest == null
@@ -119,6 +130,7 @@ public class PriceImportService {
                 rows += repository.upsert(ticker, bars, SOURCE);
                 repository.clearPriceMissing(ticker);
                 ok++;
+                failedInARow = 0;
             } catch (org.springframework.web.client.HttpClientErrorException.NotFound e) {
                 // Yahoo has no such symbol (often long-suspended or delisted): retry weekly, not daily.
                 repository.markPriceMissing(ticker, today);
@@ -126,18 +138,41 @@ public class PriceImportService {
             } catch (RuntimeException e) {
                 log.warn("Price import failed for {}: {}", ticker, e.getMessage());
                 failures.add(ticker + ": " + e.getMessage());
+                failedInARow++;
             }
             pause();
         }
 
-        // Market indices go to index_daily; failures are reported like stocks but not counted as one.
+
+        String message = failures.isEmpty() ? null : String.join("\n", failures);
+        repository.finishRun(runId, clock.instant(), ok, failures.size(), rows, message);
+        return new ImportResult(false, tickers.size(), ok, failures.size(), notFound, skippedMissing, rows, lastFinalDay, failures);
+    }
+
+    private static LocalDate lastFinalDay(ZonedDateTime now) {
+        return now.toLocalTime().isBefore(DAY_FINAL_AFTER) ? now.toLocalDate().minusDays(1) : now.toLocalDate();
+    }
+
+    /**
+     * Market indices go to index_daily; failures are reported like stocks but not counted as one.
+     *
+     * @param onlyIfBehind skip an index whose stored series already reaches a trading day at or after the
+     *                     latest stock bar (so weekends and holidays don't cause requests)
+     */
+    private int importIndices(LocalDate lastFinalDay, boolean onlyIfBehind, List<String> failures) {
+        int rows = 0;
         for (var index : INDICES.entrySet()) {
             try {
                 LocalDate latest = repository.latestIndexDate(index.getKey());
+                if (onlyIfBehind) {
+                    // A first backfill belongs to a full run; otherwise only catch up to the stocks.
+                    LocalDate latestStock = repository.latestStockDate();
+                    if (latest == null || latestStock == null || !latest.isBefore(latestStock)) continue;
+                }
                 LocalDate from = latest == null
                         ? lastFinalDay.minusYears(backfillYears)
                         : latest.minusDays(OVERLAP_DAYS);
-                List<YahooFinanceClient.DailyBar> bars = yahoo.dailyBarsForSymbol(index.getValue(), from, lastFinalDay)
+                List<YahooFinanceClient.DailyBar> bars = withRetry(() -> yahoo.dailyBarsForSymbol(index.getValue(), from, lastFinalDay))
                         .stream()
                         .filter(bar -> !bar.date().isAfter(lastFinalDay))
                         .toList();
@@ -147,11 +182,10 @@ public class PriceImportService {
                 failures.add(index.getKey() + ": " + e.getMessage());
             }
         }
-
-        String message = failures.isEmpty() ? null : String.join("\n", failures);
-        repository.finishRun(runId, clock.instant(), ok, failures.size(), rows, message);
-        return new ImportResult(false, tickers.size(), ok, failures.size(), notFound, skippedMissing, rows, lastFinalDay, failures);
+        return rows;
     }
+
+    static final int MAX_FAILURES_IN_A_ROW = 15;
 
     // Yahoo occasionally answers 429 when asked for many stocks in a row: wait and try again.
     private static final int RETRIES = 2;

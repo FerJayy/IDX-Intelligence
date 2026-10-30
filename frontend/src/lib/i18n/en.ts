@@ -377,6 +377,8 @@ export const en = {
       ALL: "All tracked stocks (baseline)",
     } as Record<string, string>,
     dataAsOf: (prices: string, brokers: string) => `Prices up to ${prices} · broker data up to ${brokers}`,
+    todayPrices: (time: string) =>
+      `Prices and changes are today's, as of ${time} (Yahoo, about 10 minutes delayed). The checks still use the last close and broker data, which arrive in the evening.`,
     empty: "No tracked stocks with enough history yet.",
     unavailable: "The shortlist is unavailable right now.",
   },

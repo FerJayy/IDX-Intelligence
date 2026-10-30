@@ -408,6 +408,7 @@ export type Shortlist = {
   checks: number;
   size: number;
   candidates: ShortlistCandidate[];
+  pricesAsOf: string | null; // set: shown prices/changes are today's (delayed); the checks stay end-of-day
   record: (Omit<RadarTrackRecord, "groups"> & { groups: { group: string; signalDays: number; horizons: TrackHorizon[] }[] }) | null;
 };
 

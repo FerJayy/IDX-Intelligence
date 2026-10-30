@@ -147,9 +147,23 @@ class BrokerImportServiceTests extends EmbeddedPostgresTest {
 
         BrokerImportService.Result result = service(100).importBatch();
 
-        // One probe for Friday, then the rest of Friday is skipped; Thursday is fully fetched.
-        verify(client, times(1)).brokerSummary(any(), eq(FRI), any());
+        // A few probes for Friday (all empty = the day isn't out yet), then the rest of Friday is skipped;
+        // Thursday is fully fetched.
+        verify(client, times(BrokerImportService.EMPTY_STOCKS_FOR_UNPUBLISHED_DAY)).brokerSummary(any(), eq(FRI), any());
         assertThat(result.stillPending()).isEqualTo(4); // Friday: 2 stocks x 2 flows
+    }
+
+    @Test
+    void oneEmptyStockDoesNotHoldBackTheOthers() {
+        // BBCA comes first alphabetically and has nothing for Friday yet; TLKM's Friday must still be fetched.
+        when(client.brokerSummary(any(), any(), any())).thenReturn(day(500, List.of(row("YP", 1000, 1000))));
+        when(client.brokerSummary(eq("BBCA"), eq(FRI), any())).thenReturn(day(500, List.of()));
+
+        BrokerImportService.Result result = service(100).importBatch();
+
+        verify(client).brokerSummary("TLKM", FRI, ALL);
+        verify(client).brokerSummary("TLKM", FRI, F);
+        assertThat(result.stillPending()).isEqualTo(2); // only BBCA's Friday (ALL + F)
     }
 
     @Test
